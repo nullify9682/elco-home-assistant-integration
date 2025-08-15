@@ -1,0 +1,7 @@
+{
+  "domain": "elco",
+  "name": "Elco Heat Pump",
+  "requirements": ["requests>=2.32.0"],
+  "iot_class": "cloud_polling",
+  "version": "0.1.0"
+}

@@ -1,0 +1,15 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Elco Remocon",
+        "description": "Enter your Elco Remocon credentials",
+        "data": {
+          "email": "Email",
+          "password": "Password",
+          "gateway_id": "Gateway ID"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# Runtime dependency
+requests>=2.32.0
+
+# Development dependencies (optional)
+black
+ruff
+mypy
+pytest
+pytest-asyncio
+pytest-homeassistant-custom-component
