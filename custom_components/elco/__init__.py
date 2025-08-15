@@ -1,10 +1,17 @@
 """The Elco integration."""
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.const import (
+    Platform,
+)
+
 from .const import DOMAIN
 from .api import ElcoRemoconAPI
 
-PLATFORMS = ["switch"]
+PLATFORMS: list[str] = [
+    Platform.CLIMATE,
+    Platform.SWITCH,
+]
 
 async def async_setup(hass: HomeAssistant, config: dict):
     return True

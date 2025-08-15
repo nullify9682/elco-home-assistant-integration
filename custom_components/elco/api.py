@@ -11,6 +11,7 @@ HEADERS = {
 
 ADDR_1 = 2950516
 ADDR_2 = 6621734
+ADDR_TEMPERATURE = 2950542
 
 class ElcoRemoconAPI:
     def __init__(self, email, password, gateway_id):
@@ -59,6 +60,26 @@ class ElcoRemoconAPI:
         r.raise_for_status()
         return r.json()
 
+    def get_hvac_data(self, zone: int = 1, use_cache: bool = True):
+        """Fetch HVAC plant + zone data from the Remocon API."""
+        if not self.logged_in:
+            self.login()
+
+        url = f"{BASE_URL}/PlantHomeBsb/GetData/{self.gateway_id}"
+        payload = {
+            "useCache": use_cache,
+            "zone": zone,
+            "filter": {
+                "progIds": None,
+                "plant": True,
+                "zone": True
+            }
+        }
+
+        r = self.session.post(url, json=payload, headers=HEADERS)
+        r.raise_for_status()
+        return r.json()
+
     def get_state(self):
         if not self.logged_in:
             self.login()
@@ -77,3 +98,8 @@ class ElcoRemoconAPI:
             self.login()
         self.write_datapoint(ADDR_1, 0, 3)
         self.write_datapoint(ADDR_2, 0, 3)
+
+    def set_temperature(self, new_temp: float, old_temp: float):
+        if not self.logged_in:
+            self.login()
+        self.write_datapoint(ADDR_TEMPERATURE, new_temp, old_temp)
