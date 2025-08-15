@@ -1,86 +1,87 @@
-#!/usr/bin/env python3
-import sys
-import requests
+from __future__ import annotations
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.const import UnitOfTemperature
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from .const import DOMAIN
 
-EMAIL = "maisongranges2i@gmail.com"
-PASSWORD = "xifpyh-1timsu-jikKys"
-GATEWAY_ID = "F0AD4E3145F5"  # replace with yours
-BASE_URL = "https://www.remocon-net.remotethermo.com/R2"
 
-# Addresses
-ADDR_1 = 2950516
-ADDR_2 = 6621734
+async def async_setup_entry(hass, entry, async_add_entities):
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"] # use existing coordinator
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/139.0.0.0 Safari/537.36",
-    "Content-Type": "application/json"
-}
+    entities = [
+        ElcoOutsideTempSensor(coordinator),
+        ElcoBoilerTempSensor(coordinator),
+        ElcoHvacOperationSensor(coordinator),
+        ElcoWaterHeaterOpSensor(coordinator),
+    ]
+    async_add_entities(entities)
 
-def login(session: requests.Session):
-    payload = {
-        "email": EMAIL,
-        "password": PASSWORD,
-        "rememberMe": True,
-        "language": "English_Gb"
-    }
-    r = session.post(
-        f"{BASE_URL}/Account/Login?returnUrl=%2FR2%2FHome",
-        json=payload,
-        headers=HEADERS,
-        allow_redirects=True
-    )
-    r.raise_for_status()
 
-def write_datapoint(session: requests.Session, address, new_value, old_value):
-    url = f"{BASE_URL}/PlantMenuBsb/WriteDataPoints/{GATEWAY_ID}"
-    payload = [{
-        "address": address,
-        "newValueAsNumber": new_value,
-        "oldValueAsNumber": old_value,
-        "newValueAsString": None,
-        "oldValueAsString": None,
-        "newOsv": False,
-        "oldOsv": False
-    }]
-    r = session.post(url, json=payload, headers=HEADERS)
-    r.raise_for_status()
-    return r.json()
+class BaseElcoSensor(CoordinatorEntity, SensorEntity):
+    def __init__(self, coordinator, name, unique_id):
+        super().__init__(coordinator)
+        self._attr_name = name
+        self._attr_unique_id = unique_id
 
-def read_datapoints(session: requests.Session, addresses):
-    addr_str = ",".join(str(a) for a in addresses)
-    url = f"{BASE_URL}/PlantMenuBsb/ReadDataPoints/{GATEWAY_ID}?addresses={addr_str}"
-    r = session.get(url, headers=HEADERS)
-    r.raise_for_status()
-    return r.json()
+    @property
+    def data(self):
+        return self.coordinator.data or {}
 
-def get_state(session: requests.Session):
-    """Return True if both addresses are in ON state (value 3.0), else False."""
-    data = read_datapoints(session, [ADDR_1, ADDR_2])
-    values = {item["address"]: item["valueAsNumber"] for item in data["data"]}
-    return values.get(ADDR_1) == 3.0 and values.get(ADDR_2) == 3.0
 
-def main():
-    if len(sys.argv) != 2 or sys.argv[1] not in ("on", "off", "state"):
-        print("Usage: elco_switch.py on|off|state")
-        sys.exit(1)
+class ElcoOutsideTempSensor(BaseElcoSensor):
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "Elco Ext Temp", "elco_outside_temp")
+        self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+        self._attr_icon = "mdi:thermometer"
 
-    with requests.Session() as s:
-        s.headers.update(HEADERS)
-        login(s)
+    @property
+    def native_value(self):
+        return self.coordinator.data.get("data", {}).get("plantData", {}).get("outsideTemp")
 
-        if sys.argv[1] == "on":
-            write_datapoint(s, ADDR_1, 3, 0)
-            write_datapoint(s, ADDR_2, 3, 0)
-        elif sys.argv[1] == "off":
-            write_datapoint(s, ADDR_1, 0, 3)
-            write_datapoint(s, ADDR_2, 0, 3)
-        elif sys.argv[1] == "state":
-            if get_state(s):
-                print("ON")
-            else:
-                print("OFF")
+class ElcoBoilerTempSensor(BaseElcoSensor):
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "Boiler Temp", "elco_boiler_temp")
+        self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+        self._attr_icon = "mdi:thermometer"
 
-if __name__ == "__main__":
-    main()
+    @property
+    def native_value(self):
+        return (
+            self.coordinator.data.get("data", {}).get("plantData", {}).get("dhwStorageTemp")
+        )
+
+class ElcoHvacOperationSensor(BaseElcoSensor):
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "Heat Pump op", "elco_hvac_op")
+
+    @property
+    def native_value(self):
+        zone = self.coordinator.data.get("data", {}).get("zoneData", {})
+        heating = zone.get("isHeatingActive")
+        cooling = zone.get("isCoolingActive")
+        heat_pump_active = zone.get("heatOrCoolRequest")
+
+        if not heat_pump_active:
+            return "idle"
+        elif cooling:
+            return "cooling"
+        elif heating:
+            return "heating"
+        return "unknown"
+
+
+class ElcoWaterHeaterOpSensor(BaseElcoSensor):
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "DHW op", "elco_dhw_op")
+
+    @property
+    def native_value(self):
+        plant = self.coordinator.data.get("data", {}).get("plantData", {})
+        dhw_mode = plant.get("dhwMode", {}).get("value")
+        heat_pump_on = plant.get("heatPumpOn")
+
+        if dhw_mode == 0:
+            return "off"
+        elif dhw_mode == 1 and heat_pump_on:
+            return "heating"
+        return "idle"

@@ -1,4 +1,5 @@
 import requests
+from homeassistant.components.climate import HVACMode
 
 BASE_URL = "https://www.remocon-net.remotethermo.com/R2"
 
@@ -9,8 +10,9 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-ADDR_1 = 2950516
-ADDR_2 = 6621734
+ADDR_HEATING_MODE = 2950516
+ADDR_COOLING_MODE = 6621734
+ADDR_TEMPERATURE = 2950542
 
 class ElcoRemoconAPI:
     def __init__(self, email, password, gateway_id):
@@ -59,21 +61,95 @@ class ElcoRemoconAPI:
         r.raise_for_status()
         return r.json()
 
-    def get_state(self):
+    def get_hvac_data(self, zone: int = 1, use_cache: bool = True):
+        """Fetch HVAC plant + zone data from the Remocon API."""
         if not self.logged_in:
             self.login()
-        data = self.read_datapoints([ADDR_1, ADDR_2])
+
+        url = f"{BASE_URL}/PlantHomeBsb/GetData/{self.gateway_id}"
+        payload = {
+            "useCache": use_cache,
+            "zone": zone,
+            "filter": {
+                "progIds": None,
+                "plant": True,
+                "zone": True
+            }
+        }
+
+        r = self.session.post(url, json=payload, headers=HEADERS)
+        r.raise_for_status()
+        return r.json()
+
+    def get_hvac_mode(self):
+        data = self.read_datapoints([ADDR_HEATING_MODE, ADDR_COOLING_MODE])
         values = {item["address"]: item["valueAsNumber"] for item in data["data"]}
-        return values.get(ADDR_1) == 3.0 and values.get(ADDR_2) == 3.0
+        heating_mode = values.get(ADDR_HEATING_MODE)
+        cooling_mode = values.get(ADDR_COOLING_MODE)
 
-    def turn_on(self):
+        if heating_mode == 3 and cooling_mode == 3:
+            return HVACMode.AUTO
+        if heating_mode == 3 and cooling_mode == 0:
+            return HVACMode.HEAT
+        if heating_mode == 0 and cooling_mode == 3:
+            return HVACMode.COOL
+        return HVACMode.OFF
+
+    def set_hvac_mode(self, old_mode : HVACMode, new_mode : HVACMode):
         if not self.logged_in:
             self.login()
-        self.write_datapoint(ADDR_1, 3, 0)
-        self.write_datapoint(ADDR_2, 3, 0)
+        heating_old_value = 3 if old_mode == HVACMode.AUTO or old_mode == HVACMode.HEAT else 0
+        cooling_old_value = 3 if old_mode == HVACMode.AUTO or old_mode == HVACMode.COOL else 0
 
-    def turn_off(self):
+        heating_new_value = 3 if new_mode == HVACMode.AUTO or new_mode == HVACMode.HEAT else 0
+        cooling_new_value = 3 if new_mode == HVACMode.AUTO or new_mode == HVACMode.COOL else 0
+
+        self.write_datapoint(ADDR_HEATING_MODE, heating_new_value, heating_old_value)
+        self.write_datapoint(ADDR_COOLING_MODE, cooling_new_value, cooling_old_value)
+
+    def set_hvac_temperature(self, new_temp: float, old_temp: float):
         if not self.logged_in:
             self.login()
-        self.write_datapoint(ADDR_1, 0, 3)
-        self.write_datapoint(ADDR_2, 0, 3)
+        self.write_datapoint(ADDR_TEMPERATURE, new_temp, old_temp)
+
+    def set_dhw_temperature(self, comfort_temp: float, reduced_temp: float = None):
+        """Set DHW target temperatures (comfort and optionally reduced)."""
+        if not self.logged_in:
+            self.login()
+
+        # Fetch current plantData first to preserve other fields
+        data = self.get_hvac_data()  # or another call if needed specifically for DHW
+        plant_data = data["data"]["plantData"]
+
+        payload = {
+            "plantData": plant_data,
+            "comfortTemp": comfort_temp,
+            "reducedTemp": reduced_temp if reduced_temp is not None else plant_data["dhwReducedTemp"]["value"],
+            "dhwMode": plant_data["dhwMode"]["value"]
+        }
+
+        url = f"{BASE_URL}/PlantDhwBsb/Save/{self.gateway_id}"
+        r = self.session.post(url, json=payload, headers=HEADERS)
+        r.raise_for_status()
+        return r.json()
+
+    def set_dhw_mode(self, mode: int):
+        """Turn DHW on or off using the PlantDhwBsb/Save endpoint."""
+        if not self.logged_in:
+            self.login()
+
+        # Fetch current plantData first
+        data = self.get_hvac_data()
+        plant_data = data["data"]["plantData"]
+
+        payload = {
+            "plantData": plant_data,
+            "comfortTemp": plant_data["dhwComfortTemp"]["value"],
+            "reducedTemp": plant_data["dhwReducedTemp"]["value"],
+            "dhwMode": mode
+        }
+
+        url = f"{BASE_URL}/PlantDhwBsb/Save/{self.gateway_id}"
+        r = self.session.post(url, json=payload, headers=HEADERS)
+        r.raise_for_status()
+        return r.json()
