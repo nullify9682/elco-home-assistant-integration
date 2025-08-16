@@ -34,7 +34,6 @@ class ElcoWaterHeater(WaterHeaterEntity):
         self._target_temp = 0.0
         self._target_temperature_step = 0.0
         self._current_operation = STATE_OFF
-        self._operation_mode = STATE_OFF
 
     @property
     def name(self):
@@ -57,7 +56,7 @@ class ElcoWaterHeater(WaterHeaterEntity):
     @property
     def operation_list(self):
         """List of available operation modes."""
-        return [STATE_ON, STATE_OFF]
+        return [STATE_ON, STATE_IDLE, STATE_OFF]
 
     @property
     def min_temp(self):
@@ -103,7 +102,7 @@ class ElcoWaterHeater(WaterHeaterEntity):
         if operation_mode not in self.operation_list:
             raise ValueError(f"Invalid operation mode {operation_mode}")
         await self.hass.async_add_executor_job(self._api.set_dhw_operation_mode, 1 if operation_mode == STATE_ON else 0)
-        self._operation_mode = operation_mode
+        self._current_operation = operation_mode
         self.async_write_ha_state()
 
     async def async_update(self):
@@ -114,10 +113,9 @@ class ElcoWaterHeater(WaterHeaterEntity):
         self._min_temp = data["data"]["plantData"]["dhwComfortTemp"]["min"]
         self._max_temp = data["data"]["plantData"]["dhwComfortTemp"]["max"]
         self._target_temperature_step = data["data"]["plantData"]["dhwComfortTemp"]["step"]
-        self._operation_mode = STATE_ON if (data["data"]["plantData"]["dhwMode"]["value"]) == 1 else STATE_OFF
-        if self._operation_mode == STATE_ON and data["data"]["plantData"]["heatPumpOn"]:
+        if data["data"]["plantData"]["dhwMode"]["value"] == 1 and data["data"]["plantData"]["heatPumpOn"]:
             self._current_operation = STATE_ON
-        if self._operation_mode == STATE_ON and data["data"]["plantData"]["heatPumpOn"] == False:
+        if data["data"]["plantData"]["dhwMode"]["value"] == 1 and not data["data"]["plantData"]["heatPumpOn"]:
             self._current_operation = STATE_IDLE
-        else:
+        if data["data"]["plantData"]["dhwMode"]["value"] == 0:
             self._current_operation = STATE_OFF
