@@ -11,8 +11,8 @@ from homeassistant.const import (
 from .const import DOMAIN
 
 STATE_OFF = "off"
-STATE_ON = "on"
-STATE_IDLE = "idle"
+STATE_ON = "heat_pump"
+STATE_IDLE = "eco"
 
 SCAN_INTERVAL = timedelta(minutes=1)
 

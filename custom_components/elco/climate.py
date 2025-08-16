@@ -46,14 +46,8 @@ class HeatPumpClimate(ClimateEntity):
 
     @property
     def icon(self):
-        if self._hvac_mode == HVACMode.OFF:
-            return "mdi:radiator-off"
-        if self._is_heat_pump_running and self._is_heating:
-            return "mdi:fire"
-        elif self._is_heat_pump_running and self._is_cooling:
-            return "mdi:snowflake"
-        else:
-            return "mdi:radiator-disabled"
+        return "mdi:heating-coil"
+
     @property
     def temperature_unit(self):
         return UnitOfTemperature.CELSIUS
