@@ -30,7 +30,8 @@ class ElcoWaterHeater(WaterHeaterEntity):
         self._target_temp = 0.0
         self._target_temperature_step = 0.0
         self._is_heating = False
-        self._current_operation = "On"
+        self._current_operation = "Off"
+        self._operation_mode = "Off"
 
     @property
     def name(self):
@@ -110,5 +111,10 @@ class ElcoWaterHeater(WaterHeaterEntity):
         self._min_temp = data["data"]["plantData"]["dhwComfortTemp"]["min"]
         self._max_temp = data["data"]["plantData"]["dhwComfortTemp"]["max"]
         self._target_temperature_step = data["data"]["plantData"]["dhwComfortTemp"]["step"]
-        self._current_operation = "On" if (data["data"]["plantData"]["dhwMode"]["value"]) == 1 else "Off"
-        self._is_heating = data["data"]["plantData"]["heatPumpOn"]
+        self._operation_mode = "On" if (data["data"]["plantData"]["dhwMode"]["value"]) == 1 else "Off"
+        if self._operation_mode == "On" and data["data"]["plantData"]["heatPumpOn"]:
+            self._current_operation = "On"
+        if self._operation_mode == "On" and data["data"]["plantData"]["heatPumpOn"] == False:
+            self._current_operation = "Idle"
+        else:
+            self._current_operation = "Off"
