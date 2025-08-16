@@ -9,8 +9,8 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-ADDR_1 = 2950516
-ADDR_2 = 6621734
+ADDR_HEATING_MODE = 2950516
+ADDR_COOLING_MODE = 6621734
 ADDR_TEMPERATURE = 2950542
 
 class ElcoRemoconAPI:
@@ -83,23 +83,65 @@ class ElcoRemoconAPI:
     def get_state(self):
         if not self.logged_in:
             self.login()
-        data = self.read_datapoints([ADDR_1, ADDR_2])
+        data = self.read_datapoints([ADDR_HEATING_MODE, ADDR_COOLING_MODE])
         values = {item["address"]: item["valueAsNumber"] for item in data["data"]}
-        return values.get(ADDR_1) == 3.0 and values.get(ADDR_2) == 3.0
+        return values.get(ADDR_HEATING_MODE) == 3.0 and values.get(ADDR_COOLING_MODE) == 3.0
 
     def turn_on(self):
         if not self.logged_in:
             self.login()
-        self.write_datapoint(ADDR_1, 3, 0)
-        self.write_datapoint(ADDR_2, 3, 0)
+        self.write_datapoint(ADDR_HEATING_MODE, 3, 0)
+        self.write_datapoint(ADDR_COOLING_MODE, 3, 0)
 
     def turn_off(self):
         if not self.logged_in:
             self.login()
-        self.write_datapoint(ADDR_1, 0, 3)
-        self.write_datapoint(ADDR_2, 0, 3)
+        self.write_datapoint(ADDR_HEATING_MODE, 0, 3)
+        self.write_datapoint(ADDR_COOLING_MODE, 0, 3)
 
     def set_temperature(self, new_temp: float, old_temp: float):
         if not self.logged_in:
             self.login()
         self.write_datapoint(ADDR_TEMPERATURE, new_temp, old_temp)
+
+    def set_dhw_temperature(self, comfort_temp: float, reduced_temp: float = None):
+        """Set DHW target temperatures (comfort and optionally reduced)."""
+        if not self.logged_in:
+            self.login()
+
+        # Fetch current plantData first to preserve other fields
+        data = self.get_hvac_data()  # or another call if needed specifically for DHW
+        plant_data = data["data"]["plantData"]
+
+        payload = {
+            "plantData": plant_data,
+            "comfortTemp": comfort_temp,
+            "reducedTemp": reduced_temp if reduced_temp is not None else plant_data["dhwReducedTemp"]["value"],
+            "dhwMode": plant_data["dhwMode"]["value"]
+        }
+
+        url = f"{BASE_URL}/PlantDhwBsb/Save/{self.gateway_id}"
+        r = self.session.post(url, json=payload, headers=HEADERS)
+        r.raise_for_status()
+        return r.json()
+
+    def set_dhw_operation_mode(self, operation_mode: str):
+        """Turn DHW on or off using the PlantDhwBsb/Save endpoint."""
+        if not self.logged_in:
+            self.login()
+
+        # Fetch current plantData first
+        data = self.get_hvac_data()
+        plant_data = data["data"]["plantData"]
+
+        payload = {
+            "plantData": plant_data,
+            "comfortTemp": plant_data["dhwComfortTemp"]["value"],
+            "reducedTemp": plant_data["dhwReducedTemp"]["value"],
+            "dhwMode": 1 if operation_mode == "On" else 0
+        }
+
+        url = f"{BASE_URL}/PlantDhwBsb/Save/{self.gateway_id}"
+        r = self.session.post(url, json=payload, headers=HEADERS)
+        r.raise_for_status()
+        return r.json()

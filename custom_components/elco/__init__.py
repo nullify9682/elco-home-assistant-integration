@@ -10,7 +10,7 @@ from .api import ElcoRemoconAPI
 
 PLATFORMS: list[str] = [
     Platform.CLIMATE,
-    Platform.SWITCH,
+    Platform.WATER_HEATER,
 ]
 
 async def async_setup(hass: HomeAssistant, config: dict):

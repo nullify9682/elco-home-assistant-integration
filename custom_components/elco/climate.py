@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import timedelta
 from homeassistant.components.climate import (
     ClimateEntity,
@@ -9,7 +10,6 @@ from homeassistant.const import (
     UnitOfTemperature,
     ATTR_TEMPERATURE,
 )
-
 from .const import DOMAIN
 
 SCAN_INTERVAL = timedelta(minutes=1)
@@ -38,6 +38,11 @@ class HeatPumpClimate(ClimateEntity):
     @property
     def name(self):
         return self._name
+
+    @property
+    def unique_id(self):
+        """Return a unique id for the device."""
+        return "Elco_heat_pump"
 
     @property
     def icon(self):
@@ -99,7 +104,6 @@ class HeatPumpClimate(ClimateEntity):
             self.hass.async_add_executor_job(self._api.turn_on)
         if hvac_mode == HVACMode.OFF:
             self.hass.async_add_executor_job(self._api.turn_off)
-        # TODO: Send API command to your heat pump here
         self.async_write_ha_state()
 
     async def async_set_temperature(self, **kwargs):
