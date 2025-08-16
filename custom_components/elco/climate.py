@@ -12,7 +12,7 @@ from homeassistant.const import (
 )
 from .const import DOMAIN
 
-SCAN_INTERVAL = timedelta(minutes=5)
+SCAN_INTERVAL = timedelta(minutes=1)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     api = hass.data[DOMAIN][entry.entry_id]
@@ -92,24 +92,20 @@ class HeatPumpClimate(ClimateEntity):
                 ClimateEntityFeature.TURN_ON |
                 ClimateEntityFeature.TURN_OFF)
 
-    @property
-    def assumed_state(self):
-        return True
-
     async def async_set_hvac_mode(self, hvac_mode):
         self._hvac_mode = hvac_mode
         self.async_write_ha_state()
         if hvac_mode == HVACMode.AUTO:
-            self.hass.async_add_executor_job(self._api.turn_on)
+            await self.hass.async_add_executor_job(self._api.turn_on)
         if hvac_mode == HVACMode.OFF:
-            self.hass.async_add_executor_job(self._api.turn_off)
+            await self.hass.async_add_executor_job(self._api.turn_off)
 
     async def async_set_temperature(self, **kwargs):
         if ATTR_TEMPERATURE not in kwargs:
             raise ValueError(f"Missing parameter {ATTR_TEMPERATURE}")
         self._target_temp = kwargs[ATTR_TEMPERATURE]
         self.async_write_ha_state()
-        self.hass.async_add_executor_job(self._api.set_temperature, kwargs[ATTR_TEMPERATURE], self._target_temp)
+        await self.hass.async_add_executor_job(self._api.set_temperature, kwargs[ATTR_TEMPERATURE], self._target_temp)
 
     async def async_update(self):
         data = await self.hass.async_add_executor_job(self._api.get_hvac_data)

@@ -14,7 +14,7 @@ STATE_OFF = "off"
 STATE_ON = "heat_pump"
 STATE_IDLE = "eco"
 
-SCAN_INTERVAL = timedelta(minutes=5)
+SCAN_INTERVAL = timedelta(minutes=1)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     api = hass.data[DOMAIN][entry.entry_id]
@@ -91,10 +91,6 @@ class ElcoWaterHeater(WaterHeaterEntity):
     def supported_features(self):
         return WaterHeaterEntityFeature.TARGET_TEMPERATURE | WaterHeaterEntityFeature.ON_OFF | WaterHeaterEntityFeature.OPERATION_MODE
 
-    @property
-    def assumed_state(self):
-        return True
-
     async def async_set_temperature(self, **kwargs):
         if ATTR_TEMPERATURE not in kwargs:
             raise ValueError(f"Missing parameter {ATTR_TEMPERATURE}")
@@ -107,7 +103,7 @@ class ElcoWaterHeater(WaterHeaterEntity):
             raise ValueError(f"Invalid operation mode {operation_mode}")
         self._current_operation = operation_mode
         self.async_write_ha_state()
-        self.hass.async_add_executor_job(self._api.set_dhw_operation_mode, 0 if operation_mode == STATE_OFF else 1)
+        await self.hass.async_add_executor_job(self._api.set_dhw_operation_mode, 0 if operation_mode == STATE_OFF else 1)
 
 
     async def async_update(self):
