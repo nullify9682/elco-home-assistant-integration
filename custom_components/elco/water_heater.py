@@ -94,16 +94,17 @@ class ElcoWaterHeater(WaterHeaterEntity):
     async def async_set_temperature(self, **kwargs):
         if ATTR_TEMPERATURE not in kwargs:
             raise ValueError(f"Missing parameter {ATTR_TEMPERATURE}")
-        await self.hass.async_add_executor_job(self._api.set_dhw_temperature, kwargs[ATTR_TEMPERATURE])
         self._target_temp = kwargs[ATTR_TEMPERATURE]
         self.async_write_ha_state()
+        await self.hass.async_add_executor_job(self._api.set_dhw_temperature, kwargs[ATTR_TEMPERATURE])
 
     async def async_set_operation_mode(self, operation_mode):
         if operation_mode not in self.operation_list:
             raise ValueError(f"Invalid operation mode {operation_mode}")
-        await self.hass.async_add_executor_job(self._api.set_dhw_operation_mode, 0 if operation_mode == STATE_OFF else 1)
         self._current_operation = operation_mode
         self.async_write_ha_state()
+        self.hass.async_add_executor_job(self._api.set_dhw_operation_mode, 0 if operation_mode == STATE_OFF else 1)
+
 
     async def async_update(self):
         data = await self.hass.async_add_executor_job(self._api.get_hvac_data)

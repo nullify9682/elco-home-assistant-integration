@@ -94,18 +94,18 @@ class HeatPumpClimate(ClimateEntity):
 
     async def async_set_hvac_mode(self, hvac_mode):
         self._hvac_mode = hvac_mode
+        self.async_write_ha_state()
         if hvac_mode == HVACMode.AUTO:
             self.hass.async_add_executor_job(self._api.turn_on)
         if hvac_mode == HVACMode.OFF:
             self.hass.async_add_executor_job(self._api.turn_off)
-        self.async_write_ha_state()
 
     async def async_set_temperature(self, **kwargs):
         if ATTR_TEMPERATURE not in kwargs:
             raise ValueError(f"Missing parameter {ATTR_TEMPERATURE}")
-        await self.hass.async_add_executor_job(self._api.set_temperature, kwargs[ATTR_TEMPERATURE], self._target_temp)
         self._target_temp = kwargs[ATTR_TEMPERATURE]
         self.async_write_ha_state()
+        self.hass.async_add_executor_job(self._api.set_temperature, kwargs[ATTR_TEMPERATURE], self._target_temp)
 
     async def async_update(self):
         data = await self.hass.async_add_executor_job(self._api.get_hvac_data)
