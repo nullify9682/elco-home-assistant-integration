@@ -12,7 +12,7 @@ from homeassistant.const import (
 )
 from .const import DOMAIN
 
-SCAN_INTERVAL = timedelta(minutes=1)
+SCAN_INTERVAL = timedelta(minutes=5)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     api = hass.data[DOMAIN][entry.entry_id]

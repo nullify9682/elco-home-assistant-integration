@@ -14,7 +14,7 @@ STATE_OFF = "off"
 STATE_ON = "heat_pump"
 STATE_IDLE = "eco"
 
-SCAN_INTERVAL = timedelta(minutes=1)
+SCAN_INTERVAL = timedelta(minutes=5)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     api = hass.data[DOMAIN][entry.entry_id]
