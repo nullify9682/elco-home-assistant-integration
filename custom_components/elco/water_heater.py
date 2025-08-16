@@ -29,7 +29,6 @@ class ElcoWaterHeater(WaterHeaterEntity):
         self._current_temp = 0.0
         self._target_temp = 0.0
         self._target_temperature_step = 0.0
-        self._is_heating = False
         self._current_operation = "Off"
         self._operation_mode = "Off"
 
@@ -99,7 +98,7 @@ class ElcoWaterHeater(WaterHeaterEntity):
     async def async_set_operation_mode(self, operation_mode):
         if operation_mode not in self.operation_list:
             raise ValueError(f"Invalid operation mode {operation_mode}")
-        await self._api.set_dhw_operation_mode(operation_mode)
+        await self.hass.async_add_executor_job(self._api.set_dhw_operation_mode, operation_mode)
         self._current_operation = operation_mode
         self.async_write_ha_state()
 
