@@ -91,6 +91,10 @@ class ElcoWaterHeater(WaterHeaterEntity):
     def supported_features(self):
         return WaterHeaterEntityFeature.TARGET_TEMPERATURE | WaterHeaterEntityFeature.ON_OFF | WaterHeaterEntityFeature.OPERATION_MODE
 
+    @property
+    def assumed_state(self):
+        return True
+
     async def async_set_temperature(self, **kwargs):
         if ATTR_TEMPERATURE not in kwargs:
             raise ValueError(f"Missing parameter {ATTR_TEMPERATURE}")

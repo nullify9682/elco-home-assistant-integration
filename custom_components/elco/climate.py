@@ -92,6 +92,10 @@ class HeatPumpClimate(ClimateEntity):
                 ClimateEntityFeature.TURN_ON |
                 ClimateEntityFeature.TURN_OFF)
 
+    @property
+    def assumed_state(self):
+        return True
+
     async def async_set_hvac_mode(self, hvac_mode):
         self._hvac_mode = hvac_mode
         self.async_write_ha_state()
