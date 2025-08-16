@@ -10,6 +10,10 @@ from homeassistant.const import (
 )
 from .const import DOMAIN
 
+STATE_OFF = "off"
+STATE_ON = "on"
+STATE_IDLE = "idle"
+
 SCAN_INTERVAL = timedelta(minutes=1)
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -29,8 +33,8 @@ class ElcoWaterHeater(WaterHeaterEntity):
         self._current_temp = 0.0
         self._target_temp = 0.0
         self._target_temperature_step = 0.0
-        self._current_operation = "Off"
-        self._operation_mode = "Off"
+        self._current_operation = STATE_OFF
+        self._operation_mode = STATE_OFF
 
     @property
     def name(self):
@@ -53,7 +57,7 @@ class ElcoWaterHeater(WaterHeaterEntity):
     @property
     def operation_list(self):
         """List of available operation modes."""
-        return ["On", "Off"]
+        return [STATE_ON, STATE_OFF]
 
     @property
     def min_temp(self):
@@ -110,10 +114,10 @@ class ElcoWaterHeater(WaterHeaterEntity):
         self._min_temp = data["data"]["plantData"]["dhwComfortTemp"]["min"]
         self._max_temp = data["data"]["plantData"]["dhwComfortTemp"]["max"]
         self._target_temperature_step = data["data"]["plantData"]["dhwComfortTemp"]["step"]
-        self._operation_mode = "On" if (data["data"]["plantData"]["dhwMode"]["value"]) == 1 else "Off"
-        if self._operation_mode == "On" and data["data"]["plantData"]["heatPumpOn"]:
-            self._current_operation = "On"
-        if self._operation_mode == "On" and data["data"]["plantData"]["heatPumpOn"] == False:
-            self._current_operation = "Idle"
+        self._operation_mode = STATE_ON if (data["data"]["plantData"]["dhwMode"]["value"]) == 1 else STATE_OFF
+        if self._operation_mode == STATE_ON and data["data"]["plantData"]["heatPumpOn"]:
+            self._current_operation = STATE_ON
+        if self._operation_mode == STATE_ON and data["data"]["plantData"]["heatPumpOn"] == False:
+            self._current_operation = STATE_IDLE
         else:
-            self._current_operation = "Off"
+            self._current_operation = STATE_OFF

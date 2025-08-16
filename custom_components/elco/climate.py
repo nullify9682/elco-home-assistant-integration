@@ -83,7 +83,7 @@ class HeatPumpClimate(ClimateEntity):
         return [HVACMode.AUTO, HVACMode.OFF]
 
     @property
-    def current_hvac_action(self):
+    def hvac_action(self):
         if self._hvac_mode == HVACMode.OFF:
             return HVACAction.OFF
         if self._is_heat_pump_running and self._is_heating:
