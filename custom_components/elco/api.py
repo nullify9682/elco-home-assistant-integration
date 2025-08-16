@@ -125,7 +125,7 @@ class ElcoRemoconAPI:
         r.raise_for_status()
         return r.json()
 
-    def set_dhw_operation_mode(self, operation_mode: str):
+    def set_dhw_operation_mode(self, operation_mode: int):
         """Turn DHW on or off using the PlantDhwBsb/Save endpoint."""
         if not self.logged_in:
             self.login()
@@ -138,7 +138,7 @@ class ElcoRemoconAPI:
             "plantData": plant_data,
             "comfortTemp": plant_data["dhwComfortTemp"]["value"],
             "reducedTemp": plant_data["dhwReducedTemp"]["value"],
-            "dhwMode": 1 if operation_mode == "On" else 0
+            "dhwMode": operation_mode
         }
 
         url = f"{BASE_URL}/PlantDhwBsb/Save/{self.gateway_id}"
