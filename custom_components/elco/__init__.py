@@ -40,7 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER,
         name="elco_remocon",
         update_method=async_update_data,
-        update_interval=timedelta(minutes=5),
+        update_interval=timedelta(minutes=10),
     )
 
     # Do first refresh

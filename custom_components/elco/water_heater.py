@@ -12,7 +12,7 @@ OPERATION_OFF = "off"
 OPERATION_HEATPUMP = "heat_pump"
 OPERATION_ECO = "eco"
 
-SCAN_INTERVAL = timedelta(minutes=5)
+SCAN_INTERVAL = timedelta(minutes=10)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     data = hass.data[DOMAIN][entry.entry_id]
