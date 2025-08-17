@@ -8,9 +8,9 @@ from homeassistant.const import UnitOfTemperature, ATTR_TEMPERATURE
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 
-STATE_OFF = "off"
-STATE_ON = "heat_pump"
-STATE_IDLE = "eco"
+OPERATION_OFF = "off"
+OPERATION_HEATPUMP = "heat_pump"
+OPERATION_ECO = "eco"
 
 SCAN_INTERVAL = timedelta(minutes=5)
 
@@ -30,7 +30,7 @@ class ElcoWaterHeater(CoordinatorEntity, WaterHeaterEntity):
         self._name = "Elco DHW"
         self._attr_unique_id = "elco_dhw"
         self._attr_icon = "mdi:water-boiler"
-        self._attr_operation_list = [STATE_ON, STATE_IDLE, STATE_OFF]
+        self._attr_operation_list = [OPERATION_OFF, OPERATION_HEATPUMP, OPERATION_ECO]
         self._attr_temperature_unit = UnitOfTemperature.CELSIUS
         self._attr_supported_features = (WaterHeaterEntityFeature.TARGET_TEMPERATURE |
                                          WaterHeaterEntityFeature.ON_OFF |
@@ -68,10 +68,10 @@ class ElcoWaterHeater(CoordinatorEntity, WaterHeaterEntity):
         if operation_mode not in self.operation_list:
             raise ValueError(f"Invalid operation mode {operation_mode}")
 
-        self.current_operation = operation_mode
+        self._attr_current_operation = operation_mode
         self.async_write_ha_state()
         await self.hass.async_add_executor_job(
-            self._api.set_dhw_mode, 0 if operation_mode == STATE_OFF else 1
+            self._api.set_dhw_mode, 0 if operation_mode == OPERATION_OFF else 1
         )
 
     async def async_update(self):
@@ -81,8 +81,8 @@ class ElcoWaterHeater(CoordinatorEntity, WaterHeaterEntity):
         heat_pump_on = plant.get("heatPumpOn", False)
 
         if dhw_mode == 1 and heat_pump_on:
-            self.current_operation = STATE_ON
+            self._attr_current_operation = OPERATION_HEATPUMP
         elif dhw_mode == 1 and not heat_pump_on:
-            self.current_operation = STATE_IDLE
+            self._attr_current_operation = OPERATION_ECO
         else:
-            self.current_operation = STATE_OFF
+            self._attr_current_operation = OPERATION_OFF

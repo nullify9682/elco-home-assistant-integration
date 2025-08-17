@@ -67,14 +67,14 @@ class HeatPumpClimate(CoordinatorEntity, ClimateEntity):
         self._attr_target_temperature = self.coordinator.data.get("data", {}).get("zoneData", {}).get("chComfortTemp", {}).get("value")
         self._attr_hvac_mode = await self.hass.async_add_executor_job(self._api.get_hvac_mode)
 
-        is_heat_pump_running = self.coordinator.data.get("data", {}).get("zoneData", {}).get("heatOrCoolRequest")
+        is_heat_pump_active = self.coordinator.data.get("data", {}).get("zoneData", {}).get("heatOrCoolRequest")
         is_heating = self.coordinator.data.get("data", {}).get("zoneData", {}).get("isHeatingActive")
         is_cooling = self.coordinator.data.get("data", {}).get("zoneData", {}).get("isCoolingActive")
         if self._attr_hvac_mode == HVACMode.OFF:
             self._attr_hvac_action = HVACAction.OFF
-        elif is_heat_pump_running and is_heating:
+        elif is_heat_pump_active and is_heating:
             self._attr_hvac_action = HVACAction.HEATING
-        elif is_heat_pump_running and is_cooling:
+        elif is_heat_pump_active and is_cooling:
             self._attr_hvac_action = HVACAction.COOLING
         else:
             self._attr_hvac_action = HVACAction.IDLE

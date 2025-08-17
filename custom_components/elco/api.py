@@ -89,9 +89,9 @@ class ElcoRemoconAPI:
 
         if heating_mode == 3 and cooling_mode == 3:
             return HVACMode.AUTO
-        if heating_mode == 3 and cooling_mode == 0:
+        elif heating_mode == 3 and cooling_mode == 0:
             return HVACMode.HEAT
-        if heating_mode == 0 and cooling_mode == 3:
+        elif heating_mode == 0 and cooling_mode == 3:
             return HVACMode.COOL
         return HVACMode.OFF
 
