@@ -77,12 +77,12 @@ class ElcoWaterHeater(CoordinatorEntity, WaterHeaterEntity):
     async def async_update(self):
         self._attr_target_temperature = self.coordinator.data.get("data", {}).get("plantData", {}).get("dhwComfortTemp", {}).get("value")
         plant = self.coordinator.data.get("data", {}).get("plantData", {})
-        dhw_mode = plant.get("dhwMode", {}).get("value", 0)
-        heat_pump_on = plant.get("heatPumpOn", False)
+        dhw_mode = plant.get("dhwMode", {}).get("value")
+        heat_pump_on = plant.get("heatPumpOn")
 
-        if dhw_mode == 1 and heat_pump_on:
-            self._attr_current_operation = OPERATION_HEATPUMP
-        elif dhw_mode == 1 and not heat_pump_on:
-            self._attr_current_operation = OPERATION_ECO
-        else:
+        if dhw_mode == 0:
             self._attr_current_operation = OPERATION_OFF
+        elif dhw_mode == 1 and heat_pump_on:
+            self._attr_current_operation = OPERATION_HEATPUMP
+        else:
+            self._attr_current_operation = OPERATION_ECO
