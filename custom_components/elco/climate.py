@@ -1,5 +1,4 @@
 from __future__ import annotations
-from datetime import timedelta
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
@@ -12,8 +11,6 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
-
-SCAN_INTERVAL = timedelta(minutes=10)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     data = hass.data[DOMAIN][entry.entry_id]
@@ -40,6 +37,29 @@ class HeatPumpClimate(CoordinatorEntity, ClimateEntity):
         return self._name
 
     @property
+    def hvac_action(self):
+        hvac_mode = self.coordinator.data.get("hvac_mode")
+        is_heat_pump_active = self.coordinator.data.get("data", {}).get("zoneData", {}).get("heatOrCoolRequest")
+        is_heating = self.coordinator.data.get("data", {}).get("zoneData", {}).get("isHeatingActive")
+        is_cooling = self.coordinator.data.get("data", {}).get("zoneData", {}).get("isCoolingActive")
+        if hvac_mode == HVACMode.OFF:
+            return HVACAction.OFF
+        elif is_heat_pump_active and is_heating:
+            return HVACAction.HEATING
+        elif is_heat_pump_active and is_cooling:
+            return HVACAction.COOLING
+        else:
+            return HVACAction.IDLE
+
+    @property
+    def hvac_mode(self):
+        return self.coordinator.data.get("hvac_mode")
+
+    @property
+    def target_temperature(self):
+        return self.coordinator.data.get("data", {}).get("zoneData", {}).get("chComfortTemp", {}).get("value")
+
+    @property
     def current_temperature(self):
         return self.coordinator.data.get("data", {}).get("plantData", {}).get("outsideTemp")
 
@@ -52,29 +72,11 @@ class HeatPumpClimate(CoordinatorEntity, ClimateEntity):
         return self.coordinator.data.get("data", {}).get("zoneData", {}).get("chComfortTemp", {}).get("max")
 
     async def async_set_hvac_mode(self, hvac_mode):
-        await self.hass.async_add_executor_job(self._api.set_hvac_mode, self._attr_hvac_mode, hvac_mode)
-        self._attr_hvac_mode = hvac_mode
-        self.async_write_ha_state()
+        await self.hass.async_add_executor_job(self._api.set_hvac_mode, self.hvac_mode, hvac_mode)
+        await self.coordinator.async_request_refresh()
 
     async def async_set_temperature(self, **kwargs):
         if ATTR_TEMPERATURE not in kwargs:
             raise ValueError(f"Missing parameter {ATTR_TEMPERATURE}")
-        self._attr_target_temperature = kwargs[ATTR_TEMPERATURE]
-        self.async_write_ha_state()
-        await self.hass.async_add_executor_job(self._api.set_hvac_temperature, kwargs[ATTR_TEMPERATURE], self._attr_target_temperature)
-
-    async def async_update(self):
-        self._attr_target_temperature = self.coordinator.data.get("data", {}).get("zoneData", {}).get("chComfortTemp", {}).get("value")
-        self._attr_hvac_mode = await self.hass.async_add_executor_job(self._api.get_hvac_mode)
-
-        is_heat_pump_active = self.coordinator.data.get("data", {}).get("zoneData", {}).get("heatOrCoolRequest")
-        is_heating = self.coordinator.data.get("data", {}).get("zoneData", {}).get("isHeatingActive")
-        is_cooling = self.coordinator.data.get("data", {}).get("zoneData", {}).get("isCoolingActive")
-        if self._attr_hvac_mode == HVACMode.OFF:
-            self._attr_hvac_action = HVACAction.OFF
-        elif is_heat_pump_active and is_heating:
-            self._attr_hvac_action = HVACAction.HEATING
-        elif is_heat_pump_active and is_cooling:
-            self._attr_hvac_action = HVACAction.COOLING
-        else:
-            self._attr_hvac_action = HVACAction.IDLE
+        await self.hass.async_add_executor_job(self._api.set_hvac_temperature, self._attr_target_temperature, kwargs[ATTR_TEMPERATURE])
+        await self.coordinator.async_request_refresh()

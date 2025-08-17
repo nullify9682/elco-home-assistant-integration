@@ -1,5 +1,4 @@
 from __future__ import annotations
-from datetime import timedelta
 from homeassistant.components.water_heater import (
     WaterHeaterEntity,
     WaterHeaterEntityFeature,
@@ -11,8 +10,6 @@ from .const import DOMAIN
 OPERATION_OFF = "off"
 OPERATION_HEATPUMP = "heat_pump"
 OPERATION_ECO = "eco"
-
-SCAN_INTERVAL = timedelta(minutes=10)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     data = hass.data[DOMAIN][entry.entry_id]
@@ -41,6 +38,22 @@ class ElcoWaterHeater(CoordinatorEntity, WaterHeaterEntity):
         return self._name
 
     @property
+    def current_operation(self):
+        plant = self.coordinator.data.get("data", {}).get("plantData", {})
+        dhw_mode = plant.get("dhwMode", {}).get("value")
+        heat_pump_on = plant.get("heatPumpOn")
+        if dhw_mode == 0:
+            return OPERATION_OFF
+        elif dhw_mode == 1 and heat_pump_on:
+            return OPERATION_HEATPUMP
+        else:
+            return OPERATION_ECO
+
+    @property
+    def target_temperature(self):
+        return self.coordinator.data.get("data", {}).get("plantData", {}).get("dhwComfortTemp", {}).get("value")
+
+    @property
     def current_temperature(self):
         return self.coordinator.data.get("data", {}).get("plantData", {}).get("dhwStorageTemp")
 
@@ -59,30 +72,13 @@ class ElcoWaterHeater(CoordinatorEntity, WaterHeaterEntity):
     async def async_set_temperature(self, **kwargs):
         if ATTR_TEMPERATURE not in kwargs:
             raise ValueError(f"Missing parameter {ATTR_TEMPERATURE}")
-
-        self._attr_target_temperature = kwargs[ATTR_TEMPERATURE]
-        self.async_write_ha_state()
         await self.hass.async_add_executor_job(self._api.set_dhw_temperature, kwargs[ATTR_TEMPERATURE])
+        await self.coordinator.async_request_refresh()
 
     async def async_set_operation_mode(self, operation_mode):
         if operation_mode not in self.operation_list:
             raise ValueError(f"Invalid operation mode {operation_mode}")
-
-        self._attr_current_operation = operation_mode
-        self.async_write_ha_state()
         await self.hass.async_add_executor_job(
             self._api.set_dhw_mode, 0 if operation_mode == OPERATION_OFF else 1
         )
-
-    async def async_update(self):
-        self._attr_target_temperature = self.coordinator.data.get("data", {}).get("plantData", {}).get("dhwComfortTemp", {}).get("value")
-        plant = self.coordinator.data.get("data", {}).get("plantData", {})
-        dhw_mode = plant.get("dhwMode", {}).get("value")
-        heat_pump_on = plant.get("heatPumpOn")
-
-        if dhw_mode == 0:
-            self._attr_current_operation = OPERATION_OFF
-        elif dhw_mode == 1 and heat_pump_on:
-            self._attr_current_operation = OPERATION_HEATPUMP
-        else:
-            self._attr_current_operation = OPERATION_ECO
+        await self.coordinator.async_request_refresh()

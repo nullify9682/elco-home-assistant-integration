@@ -89,7 +89,11 @@ class ElcoRemoconAPI:
 
         r = self.session.post(url, json=payload, headers=HEADERS)
         r.raise_for_status()
-        return r.json()
+        result = r.json()
+
+        result['hvac_mode'] = self.get_hvac_mode()
+
+        return result
 
     def get_hvac_mode(self):
         data = self.read_datapoints([ADDR_HEATING_MODE, ADDR_COOLING_MODE])
@@ -117,7 +121,7 @@ class ElcoRemoconAPI:
         self.write_datapoint(ADDR_HEATING_MODE, heating_new_value, heating_old_value)
         self.write_datapoint(ADDR_COOLING_MODE, cooling_new_value, cooling_old_value)
 
-    def set_hvac_temperature(self, new_temp: float, old_temp: float):
+    def set_hvac_temperature(self, old_temp: float, new_temp: float):
         if not self.logged_in:
             self.login()
         self.write_datapoint(ADDR_TEMPERATURE, new_temp, old_temp)
