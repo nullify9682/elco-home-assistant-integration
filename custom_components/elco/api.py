@@ -4,10 +4,20 @@ from homeassistant.components.climate import HVACMode
 BASE_URL = "https://www.remocon-net.remotethermo.com/R2"
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/139.0.0.0 Safari/537.36",
-    "Content-Type": "application/json"
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/139.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Connection": "keep-alive",
+    "Content-Type": "application/json;charset=UTF-8",
+    "Origin": "https://www.remocon-net.remotethermo.com",
+    "Referer": "https://www.remocon-net.remotethermo.com/R2/Home",
 }
 
 ADDR_HEATING_MODE = 2950516
