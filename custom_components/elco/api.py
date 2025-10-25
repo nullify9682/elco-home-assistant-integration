@@ -101,22 +101,22 @@ class ElcoRemoconAPI:
         heating_mode = values.get(ADDR_HEATING_MODE)
         cooling_mode = values.get(ADDR_COOLING_MODE)
 
-        if heating_mode == 3 and cooling_mode == 3:
+        if heating_mode != 0 and cooling_mode != 0:
             return HVACMode.AUTO
-        elif heating_mode == 3 and cooling_mode == 0:
+        elif heating_mode != 0 and cooling_mode == 0:
             return HVACMode.HEAT
-        elif heating_mode == 0 and cooling_mode == 3:
+        elif heating_mode == 0 and cooling_mode != 0:
             return HVACMode.COOL
         return HVACMode.OFF
 
     def set_hvac_mode(self, old_mode : HVACMode, new_mode : HVACMode):
         if not self.logged_in:
             self.login()
-        heating_old_value = 3 if old_mode == HVACMode.AUTO or old_mode == HVACMode.HEAT else 0
-        cooling_old_value = 3 if old_mode == HVACMode.AUTO or old_mode == HVACMode.COOL else 0
+        heating_old_value = 1 if old_mode == HVACMode.AUTO or old_mode == HVACMode.HEAT else 0
+        cooling_old_value = 1 if old_mode == HVACMode.AUTO or old_mode == HVACMode.COOL else 0
 
-        heating_new_value = 3 if new_mode == HVACMode.AUTO or new_mode == HVACMode.HEAT else 0
-        cooling_new_value = 3 if new_mode == HVACMode.AUTO or new_mode == HVACMode.COOL else 0
+        heating_new_value = 1 if new_mode == HVACMode.AUTO or new_mode == HVACMode.HEAT else 0
+        cooling_new_value = 1 if new_mode == HVACMode.AUTO or new_mode == HVACMode.COOL else 0
 
         self.write_datapoint(ADDR_HEATING_MODE, heating_new_value, heating_old_value)
         self.write_datapoint(ADDR_COOLING_MODE, cooling_new_value, cooling_old_value)
