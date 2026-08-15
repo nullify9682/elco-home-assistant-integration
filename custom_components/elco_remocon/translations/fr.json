@@ -30,10 +30,11 @@
   "options": {
     "step": {
       "init": {
-        "title": "Interrogation",
-        "description": "Fréquence d'interrogation du cloud Remocon. Un intervalle court capte les cycles courts de refroidissement et d'eau chaude, mais sollicite davantage leurs serveurs.",
+        "title": "Réglages",
+        "description": "Intervalle d'interrogation : un intervalle court capte les cycles courts de refroidissement et d'eau chaude, mais sollicite davantage leurs serveurs.\n\nPoint de bascule été/hiver : au-dessus de cette température extérieure, la pompe ne peut pas être en train de chauffer la maison, et n'est donc jamais annoncée en chauffage. Elle bascule pourtant sur son circuit de chauffage pour charger le ballon — c'est précisément ce que ce seuil écarte.",
         "data": {
-          "scan_interval_minutes": "Intervalle d'interrogation"
+          "scan_interval_minutes": "Intervalle d'interrogation",
+          "summer_switchover": "Point de bascule été/hiver"
         }
       }
     }
@@ -69,9 +70,7 @@
           "off": "Arrêt",
           "idle": "En veille",
           "heating": "Chauffage",
-          "cooling": "Refroidissement",
-          "freecooling": "Freecooling",
-          "dhw": "Chauffe de l'eau chaude"
+          "cooling": "Refroidissement"
         }
       },
       "dhw_operation": {

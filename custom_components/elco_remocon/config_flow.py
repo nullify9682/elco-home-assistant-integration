@@ -27,10 +27,14 @@ from homeassistant.helpers.selector import (
 from .api import ElcoApiError, ElcoAuthError, ElcoClient
 from .const import (
     CONF_SCAN_INTERVAL_MINUTES,
+    CONF_SUMMER_SWITCHOVER,
     DEFAULT_SCAN_INTERVAL_MINUTES,
+    DEFAULT_SUMMER_SWITCHOVER,
     DOMAIN,
     MAX_SCAN_INTERVAL_MINUTES,
+    MAX_SUMMER_SWITCHOVER,
     MIN_SCAN_INTERVAL_MINUTES,
+    MIN_SUMMER_SWITCHOVER,
 )
 
 STEP_USER_SCHEMA = vol.Schema(
@@ -126,7 +130,7 @@ class ElcoConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class ElcoOptionsFlow(OptionsFlow):
-    """Réglage de la cadence d'interrogation."""
+    """Cadence d'interrogation et point de bascule été/hiver."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -136,19 +140,21 @@ class ElcoOptionsFlow(OptionsFlow):
                 data={
                     CONF_SCAN_INTERVAL_MINUTES: int(
                         user_input[CONF_SCAN_INTERVAL_MINUTES]
-                    )
+                    ),
+                    CONF_SUMMER_SWITCHOVER: float(user_input[CONF_SUMMER_SWITCHOVER]),
                 }
             )
 
-        current = self.config_entry.options.get(
-            CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES
-        )
+        options = self.config_entry.options
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
                     vol.Required(
-                        CONF_SCAN_INTERVAL_MINUTES, default=current
+                        CONF_SCAN_INTERVAL_MINUTES,
+                        default=options.get(
+                            CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES
+                        ),
                     ): NumberSelector(
                         NumberSelectorConfig(
                             min=MIN_SCAN_INTERVAL_MINUTES,
@@ -157,7 +163,21 @@ class ElcoOptionsFlow(OptionsFlow):
                             unit_of_measurement="min",
                             mode=NumberSelectorMode.BOX,
                         )
-                    )
+                    ),
+                    vol.Required(
+                        CONF_SUMMER_SWITCHOVER,
+                        default=options.get(
+                            CONF_SUMMER_SWITCHOVER, DEFAULT_SUMMER_SWITCHOVER
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=MIN_SUMMER_SWITCHOVER,
+                            max=MAX_SUMMER_SWITCHOVER,
+                            step=0.5,
+                            unit_of_measurement="°C",
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    ),
                 }
             ),
         )

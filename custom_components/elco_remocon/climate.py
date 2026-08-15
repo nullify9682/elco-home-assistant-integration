@@ -16,9 +16,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ElcoConfigEntry
 from .const import (
-    OP_COOLING,
-    OP_FREECOOLING,
-    OP_HEATING,
     ZONE_MODE_AUTO,
     ZONE_MODE_COMFORT,
     ZONE_MODE_OFF,
@@ -75,28 +72,23 @@ class ElcoZoneClimate(ElcoZoneEntity, ClimateEntity):
 
     @property
     def hvac_mode(self) -> HVACMode:
+        """Régime de la zone.
+
+        Au-dessus du point de bascule été/hiver, `heat` est impossible : la
+        machine passe en mode hydraulique chauffage pour charger le ballon et
+        y reste, ce qui afficherait « chauffage » en plein mois d'août.
+        """
         zone = self.zone_state
-        if zone is None or zone.mode == ZONE_MODE_OFF:
+        if zone is None:
             return HVACMode.OFF
-        if zone.cooling_on:
-            return HVACMode.COOL
-        if zone.heating_on:
-            return HVACMode.HEAT
-        return HVACMode.AUTO
+        return HVACMode(self.coordinator.zone_hvac_mode(zone))
 
     @property
     def hvac_action(self) -> HVACAction:
-        operation = self.coordinator.operation()
         zone = self.zone_state
-        if zone is None or zone.mode == ZONE_MODE_OFF:
+        if zone is None:
             return HVACAction.OFF
-        if not zone.heat_or_cool_request:
-            return HVACAction.IDLE
-        if operation in (OP_COOLING, OP_FREECOOLING):
-            return HVACAction.COOLING
-        if operation == OP_HEATING:
-            return HVACAction.HEATING
-        return HVACAction.IDLE
+        return HVACAction(self.coordinator.zone_action(zone))
 
     @property
     def preset_mode(self) -> str | None:

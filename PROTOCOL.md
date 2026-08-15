@@ -88,8 +88,23 @@ Champs observés :
   Conclure `dhwMode == 1 and heatPumpOn` ⇒ « ECS en chauffe » est **faux** :
   mesuré le 2026-08-15, le ballon perdait 0.9 °C/h en veille pendant que cette
   condition était vraie.
-- **Il n'existe aucun champ indiquant que l'ECS chauffe réellement.** Il faut
-  l'inférer (pente de `dhwStorageTemp`).
+- **`isHeatingActive` / `isCoolingActive` ne décrivent pas l'activité de la
+  zone**, mais le **mode hydraulique de la machine**. Mesuré le 2026-08-15 :
+  `isHeatingActive` valait `true` par 30,5 °C de température extérieure, avec
+  `heatOrCoolRequest` à `false` et le circulateur à l'arrêt — la machine avait
+  quitté le refroidissement à 10:03 uniquement pour pouvoir charger le ballon,
+  et y est restée après. Les lire comme « la zone chauffe » fait afficher
+  « chauffage » en plein été.
+- **`heatOrCoolRequest` est le seul champ qui dit ce que veut le circuit.**
+- **Il n'existe aucun champ indiquant que l'ECS chauffe réellement**, mais il
+  se déduit sans ambiguïté : la machine tourne (`heatPumpOn`) alors qu'aucune
+  zone ne demande rien (`heatOrCoolRequest`) ⇒ elle travaille pour l'ECS.
+  Instantané, sans seuil ni saison.
+
+  Une inférence par la pente de `dhwStorageTemp` a été essayée puis
+  abandonnée : elle mettait **30 minutes** à réagir, parce que la température
+  du ballon commence par *baisser* au démarrage de la charge (mesuré :
+  40,0 → 38,5 °C avant de remonter).
 - **Consignes chaud et froid distinctes** : `chComfortTemp` et `coolComfortTemp`,
   avec des bornes différentes. Lire et écrire celle qui correspond au mode
   courant.

@@ -16,7 +16,9 @@ from .api import ElcoApiError, ElcoAuthError, ElcoClient
 from .const import (
     CONF_GATEWAY_ID,
     CONF_SCAN_INTERVAL_MINUTES,
+    CONF_SUMMER_SWITCHOVER,
     DEFAULT_SCAN_INTERVAL_MINUTES,
+    DEFAULT_SUMMER_SWITCHOVER,
     LEGACY_UNIQUE_IDS,
 )
 from .coordinator import ElcoCoordinator
@@ -59,6 +61,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ElcoConfigEntry) -> bool
         CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES
     )
     interval = timedelta(minutes=minutes)
+    switchover = entry.options.get(CONF_SUMMER_SWITCHOVER, DEFAULT_SUMMER_SWITCHOVER)
 
     coordinators: dict[str, ElcoCoordinator] = {}
     for plant in plants:
@@ -68,7 +71,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ElcoConfigEntry) -> bool
             # Une installation injoignable ne doit pas priver les autres.
             _LOGGER.warning("installation %s ignorée : %s", plant.gateway_id, err)
             continue
-        coordinator = ElcoCoordinator(hass, client, plant, features, interval)
+        coordinator = ElcoCoordinator(
+            hass, client, plant, features, interval, switchover
+        )
         await coordinator.async_config_entry_first_refresh()
         coordinators[plant.gateway_id] = coordinator
 

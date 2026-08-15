@@ -16,7 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ElcoConfigEntry
-from .const import OP_HEATING, OP_IDLE, OP_OFF, OPERATION_STATES
+from .const import DHW_OPERATION_STATES, OPERATION_STATES
 from .coordinator import (
     ITEM_CH_FLOW_SETPOINT_NAME,
     ITEM_CH_FLOW_TEMP_NAME,
@@ -25,8 +25,6 @@ from .coordinator import (
 )
 from .entity import ElcoEntity
 from .models import PlantState
-
-DHW_OPERATION_STATES = [OP_OFF, OP_IDLE, OP_HEATING]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -108,15 +106,9 @@ SENSORS: tuple[ElcoSensorDescription, ...] = (
         translation_key="dhw_operation",
         device_class=SensorDeviceClass.ENUM,
         options=DHW_OPERATION_STATES,
-        value_fn=lambda state, _c: _dhw_operation(state),
+        value_fn=lambda _state, coordinator: coordinator.dhw_operation(),
     ),
 )
-
-
-def _dhw_operation(state: PlantState) -> str:
-    if state.dhw_off:
-        return OP_OFF
-    return OP_HEATING if state.dhw_heating else OP_IDLE
 
 
 async def async_setup_entry(

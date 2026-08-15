@@ -13,10 +13,19 @@ CONF_EMAIL: Final = "email"
 CONF_PASSWORD: Final = "password"
 CONF_GATEWAY_ID: Final = "gateway_id"
 CONF_SCAN_INTERVAL_MINUTES: Final = "scan_interval_minutes"
+CONF_SUMMER_SWITCHOVER: Final = "summer_switchover"
 
 DEFAULT_SCAN_INTERVAL_MINUTES: Final = 10
 MIN_SCAN_INTERVAL_MINUTES: Final = 2
 MAX_SCAN_INTERVAL_MINUTES: Final = 60
+
+# Point de bascule été/hiver. Au-dessus, la machine ne peut pas être en train
+# de chauffer la maison : si elle produit de la chaleur, c'est pour l'eau
+# chaude. Réglable, parce qu'un seuil juste en Suisse romande ne l'est pas
+# ailleurs.
+DEFAULT_SUMMER_SWITCHOVER: Final = 21.0
+MIN_SUMMER_SWITCHOVER: Final = 5.0
+MAX_SUMMER_SWITCHOVER: Final = 35.0
 
 # Identité annoncée au serveur. Reprend celle de l'application officielle :
 # le serveur refuse les clients qu'il ne reconnaît pas.
@@ -89,33 +98,17 @@ ZONE_MODE_COMFORT: Final = 2
 ZONE_MODE_REDUCED: Final = 3
 
 # --- états de fonctionnement ------------------------------------------------
-# Traduits via translation_key. Ne JAMAIS renvoyer "unknown" : la chaîne entre
-# en collision avec l'état natif de Home Assistant.
+# Vocabulaire `HVACAction` de Home Assistant, sans invention. Ne JAMAIS
+# renvoyer "unknown" : la chaîne entre en collision avec l'état natif de HA.
 OP_OFF: Final = "off"
 OP_IDLE: Final = "idle"
 OP_HEATING: Final = "heating"
 OP_COOLING: Final = "cooling"
-OP_FREECOOLING: Final = "freecooling"
-OP_DHW: Final = "dhw"
-OPERATION_STATES: Final = [
-    OP_OFF,
-    OP_IDLE,
-    OP_HEATING,
-    OP_COOLING,
-    OP_FREECOOLING,
-    OP_DHW,
-]
 
-# Aucun champ de l'API ne dit que l'ECS chauffe : `hpOn` est au niveau de
-# l'installation et `dhwMode` ne dit que « autorisée ». Il faut l'inférer de la
-# pente du ballon. Mesuré en veille sur une Aerotop S2 : −0.9 °C/h ; un seuil
-# franchement positif écarte le bruit de mesure.
-DHW_HEATING_SLOPE_THRESHOLD: Final = 0.5  # °C/h
-DHW_SLOPE_WINDOW: Final = 3  # nombre de relevés conservés pour la pente
-
-# Un départ nettement sous l'ambiant, circulateur en marche et compresseur à
-# l'arrêt : c'est du freecooling, pas du refroidissement actif.
-FREECOOLING_MAX_FLOW_TEMP: Final = 25.0
+# Le capteur de la pompe décrit le CIRCUIT, et rien d'autre. Pendant une charge
+# du ballon il vaut `idle` : c'est le capteur ECS qui porte l'information.
+OPERATION_STATES: Final = [OP_OFF, OP_IDLE, OP_HEATING, OP_COOLING]
+DHW_OPERATION_STATES: Final = [OP_OFF, OP_IDLE, OP_HEATING]
 
 # --- migration --------------------------------------------------------------
 # Les unique_id de la version 0.1 n'étaient pas préfixés par la passerelle, ce

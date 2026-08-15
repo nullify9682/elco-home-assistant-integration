@@ -47,13 +47,16 @@ class ElcoWaterHeater(ElcoEntity, WaterHeaterEntity):
 
     @property
     def current_operation(self) -> str | None:
-        """État réel du ballon.
+        """État réel du ballon, en vocabulaire `water_heater`.
 
-        `heat_pump` seulement si le ballon monte VRAIMENT. La version 0.1
-        concluait « en chauffe » dès que `dhwMode == 1 and heatPumpOn`, ce qui
-        est vrai en permanence dès que la machine tourne pour le chauffage ou
-        le refroidissement : le capteur annonçait une chauffe pendant que le
-        ballon perdait 0.9 °C/h.
+        `heat_pump` seulement quand la machine travaille effectivement pour le
+        ballon : elle tourne alors qu'aucune zone ne demande rien. `eco`
+        signifie « autorisée, mais au repos ».
+
+        La version 0.1 concluait « en chauffe » dès que
+        `dhwMode == 1 and heatPumpOn`, ce qui est vrai en permanence dès que la
+        machine tourne pour le chauffage ou le refroidissement : le capteur
+        annonçait une chauffe pendant que le ballon perdait 0.9 °C/h.
         """
         data = self.coordinator.data
         if data is None:

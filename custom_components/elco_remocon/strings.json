@@ -30,10 +30,11 @@
   "options": {
     "step": {
       "init": {
-        "title": "Polling",
-        "description": "How often to query the Remocon cloud. Shorter intervals catch brief cooling and hot water cycles, but increase the load on their servers.",
+        "title": "Settings",
+        "description": "Polling interval: shorter intervals catch brief cooling and hot water cycles, but increase the load on their servers.\n\nSummer switchover: above this outside temperature the heat pump cannot be heating the house, so it is never reported as heating. It still switches to its heating circuit to charge the hot water tank — that is what this threshold filters out.",
         "data": {
-          "scan_interval_minutes": "Polling interval"
+          "scan_interval_minutes": "Polling interval",
+          "summer_switchover": "Summer switchover point"
         }
       }
     }
@@ -69,9 +70,7 @@
           "off": "Off",
           "idle": "Idle",
           "heating": "Heating",
-          "cooling": "Cooling",
-          "freecooling": "Free cooling",
-          "dhw": "Heating hot water"
+          "cooling": "Cooling"
         }
       },
       "dhw_operation": {

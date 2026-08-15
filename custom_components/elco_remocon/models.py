@@ -127,12 +127,19 @@ class DataItem:
         `invalid` ne suffit pas : certains compteurs renvoient un entier 32
         bits en débordement (par exemple 4294966879 pour −417) sans lever le
         moindre drapeau. Les bornes déclarées les écartent.
+
+        Mais les bornes ne sont retenues que si elles délimitent réellement
+        quelque chose : les items booléens annoncent `min == max == 0`, et une
+        comparaison naïve rejetterait leur seul état intéressant. Mesuré sur
+        `IsHeatingPumpOn`, qui vaut 1 avec des bornes [0, 0].
         """
         if self.value is None or self.invalid or self.error:
             return False
-        if self.minimum is not None and self.value < self.minimum:
-            return False
-        return not (self.maximum is not None and self.value > self.maximum)
+        if self.minimum is None or self.maximum is None:
+            return True
+        if self.maximum <= self.minimum:
+            return True
+        return self.minimum <= self.value <= self.maximum
 
     @classmethod
     def from_json(cls, raw: dict[str, Any]) -> DataItem:
