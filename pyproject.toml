@@ -1,0 +1,14 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+ignore = [
+  # Les entités Home Assistant déclarent leurs capacités en attributs de
+  # classe (`_attr_hvac_modes`, `_attr_operation_list`, …). C'est la
+  # convention du framework, et la classe de base les type comme des listes :
+  # les annoter `ClassVar` produirait un conflit de types. Le risque que
+  # RUF012 signale — une liste partagée puis mutée — n'existe pas ici, ces
+  # attributs ne sont jamais modifiés à l'exécution.
+  "RUF012",
+]

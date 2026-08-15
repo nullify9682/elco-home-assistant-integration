@@ -1,0 +1,96 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connexion à Elco Remocon",
+        "description": "Connectez-vous avec votre compte Remocon-net. Toutes les pompes à chaleur du compte sont découvertes automatiquement.",
+        "data": {
+          "email": "Adresse e-mail",
+          "password": "Mot de passe"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ré-authentification",
+        "description": "Le mot de passe de {email} n'est plus accepté.",
+        "data": {
+          "password": "Mot de passe"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Adresse e-mail ou mot de passe incorrect.",
+      "cannot_connect": "Le service Remocon est injoignable.",
+      "no_plants": "Aucune pompe à chaleur n'est enregistrée sur ce compte."
+    },
+    "abort": {
+      "already_configured": "Ce compte est déjà configuré.",
+      "reauth_successful": "Ré-authentification réussie."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Interrogation",
+        "description": "Fréquence d'interrogation du cloud Remocon. Un intervalle court capte les cycles courts de refroidissement et d'eau chaude, mais sollicite davantage leurs serveurs.",
+        "data": {
+          "scan_interval_minutes": "Intervalle d'interrogation"
+        }
+      }
+    }
+  },
+  "entity": {
+    "climate": {
+      "zone": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Programmation",
+              "comfort": "Confort",
+              "eco": "Réduit"
+            }
+          }
+        }
+      }
+    },
+    "water_heater": {
+      "dhw": {
+        "name": "Eau chaude sanitaire"
+      }
+    },
+    "sensor": {
+      "outside_temp": { "name": "Température extérieure" },
+      "dhw_temp": { "name": "Ballon d'eau chaude" },
+      "flow_temp": { "name": "Température de départ" },
+      "flow_setpoint": { "name": "Consigne de départ" },
+      "circuit_pressure": { "name": "Pression du circuit" },
+      "operation": {
+        "name": "Fonctionnement",
+        "state": {
+          "off": "Arrêt",
+          "idle": "En veille",
+          "heating": "Chauffage",
+          "cooling": "Refroidissement",
+          "freecooling": "Freecooling",
+          "dhw": "Chauffe de l'eau chaude"
+        }
+      },
+      "dhw_operation": {
+        "name": "Fonctionnement eau chaude",
+        "state": {
+          "off": "Arrêt",
+          "idle": "En veille",
+          "heating": "En chauffe"
+        }
+      }
+    },
+    "binary_sensor": {
+      "heat_pump_on": { "name": "Pompe à chaleur en marche" },
+      "circulator_on": { "name": "Circulateur en marche" },
+      "dhw_heating": { "name": "Eau chaude en chauffe" },
+      "flame": { "name": "Flamme" },
+      "heating_active": { "name": "Chauffage actif" },
+      "cooling_active": { "name": "Refroidissement actif" },
+      "heat_or_cool_request": { "name": "Demande chaud ou froid" }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "domain": "elco_remocon",
+  "name": "Elco Remocon",
+  "codeowners": ["@nullify9682"],
+  "config_flow": true,
+  "documentation": "https://github.com/nullify9682/elco-home-assistant-integration",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/nullify9682/elco-home-assistant-integration/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

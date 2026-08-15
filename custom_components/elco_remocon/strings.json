@@ -1,0 +1,96 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Elco Remocon",
+        "description": "Sign in with your Remocon-net account. All heat pumps on the account are discovered automatically.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "description": "The password for {email} is no longer accepted.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid email or password.",
+      "cannot_connect": "Cannot reach the Remocon service.",
+      "no_plants": "This account has no heat pump registered."
+    },
+    "abort": {
+      "already_configured": "This account is already set up.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Polling",
+        "description": "How often to query the Remocon cloud. Shorter intervals catch brief cooling and hot water cycles, but increase the load on their servers.",
+        "data": {
+          "scan_interval_minutes": "Polling interval"
+        }
+      }
+    }
+  },
+  "entity": {
+    "climate": {
+      "zone": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Schedule",
+              "comfort": "Comfort",
+              "eco": "Reduced"
+            }
+          }
+        }
+      }
+    },
+    "water_heater": {
+      "dhw": {
+        "name": "Domestic hot water"
+      }
+    },
+    "sensor": {
+      "outside_temp": { "name": "Outside temperature" },
+      "dhw_temp": { "name": "Hot water tank" },
+      "flow_temp": { "name": "Flow temperature" },
+      "flow_setpoint": { "name": "Flow setpoint" },
+      "circuit_pressure": { "name": "Circuit pressure" },
+      "operation": {
+        "name": "Operation",
+        "state": {
+          "off": "Off",
+          "idle": "Idle",
+          "heating": "Heating",
+          "cooling": "Cooling",
+          "freecooling": "Free cooling",
+          "dhw": "Heating hot water"
+        }
+      },
+      "dhw_operation": {
+        "name": "Hot water operation",
+        "state": {
+          "off": "Off",
+          "idle": "Idle",
+          "heating": "Heating"
+        }
+      }
+    },
+    "binary_sensor": {
+      "heat_pump_on": { "name": "Heat pump running" },
+      "circulator_on": { "name": "Circulator running" },
+      "dhw_heating": { "name": "Hot water heating" },
+      "flame": { "name": "Flame" },
+      "heating_active": { "name": "Heating active" },
+      "cooling_active": { "name": "Cooling active" },
+      "heat_or_cool_request": { "name": "Heat or cool request" }
+    }
+  }
+}

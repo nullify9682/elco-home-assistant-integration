@@ -1,0 +1,133 @@
+"""Intégration Elco Remocon pour Home Assistant."""
+
+from __future__ import annotations
+
+import logging
+from datetime import timedelta
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, Platform
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
+
+from .api import ElcoApiError, ElcoAuthError, ElcoClient
+from .const import (
+    CONF_GATEWAY_ID,
+    CONF_SCAN_INTERVAL_MINUTES,
+    DEFAULT_SCAN_INTERVAL_MINUTES,
+    LEGACY_UNIQUE_IDS,
+)
+from .coordinator import ElcoCoordinator
+
+_LOGGER = logging.getLogger(__name__)
+
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.CLIMATE,
+    Platform.SENSOR,
+    Platform.WATER_HEATER,
+]
+
+type ElcoConfigEntry = ConfigEntry[dict[str, ElcoCoordinator]]
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ElcoConfigEntry) -> bool:
+    """Ouvre une session pour le compte et découvre ses installations."""
+    session = async_create_clientsession(hass)
+    client = ElcoClient(
+        session,
+        entry.data[CONF_EMAIL],
+        entry.data[CONF_PASSWORD],
+    )
+
+    try:
+        await client.async_login()
+        plants = await client.async_get_plants()
+    except ElcoAuthError as err:
+        raise ConfigEntryAuthFailed(str(err)) from err
+    except ElcoApiError as err:
+        raise ConfigEntryNotReady(str(err)) from err
+
+    if not plants:
+        raise ConfigEntryNotReady("aucune installation sur ce compte")
+
+    await _async_migrate_unique_ids(hass, entry, plants)
+
+    minutes = entry.options.get(
+        CONF_SCAN_INTERVAL_MINUTES, DEFAULT_SCAN_INTERVAL_MINUTES
+    )
+    interval = timedelta(minutes=minutes)
+
+    coordinators: dict[str, ElcoCoordinator] = {}
+    for plant in plants:
+        try:
+            features = await client.async_get_features(plant.gateway_id)
+        except ElcoApiError as err:
+            # Une installation injoignable ne doit pas priver les autres.
+            _LOGGER.warning("installation %s ignorée : %s", plant.gateway_id, err)
+            continue
+        coordinator = ElcoCoordinator(hass, client, plant, features, interval)
+        await coordinator.async_config_entry_first_refresh()
+        coordinators[plant.gateway_id] = coordinator
+
+    if not coordinators:
+        raise ConfigEntryNotReady("aucune installation joignable")
+
+    entry.runtime_data = coordinators
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ElcoConfigEntry) -> bool:
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Fait passer une entrée de la version 1 à la version 2.
+
+    La version 1 stockait un `gateway_id` saisi à la main et ne gérait qu'une
+    installation. La version 2 découvre les installations du compte ; le
+    `gateway_id` est conservé, il sert à réécrire les anciens `unique_id`.
+    """
+    if entry.version > 2:
+        return False
+    if entry.version == 1:
+        hass.config_entries.async_update_entry(entry, version=2)
+        _LOGGER.debug("entrée %s migrée en version 2", entry.entry_id)
+    return True
+
+
+async def _async_migrate_unique_ids(
+    hass: HomeAssistant, entry: ConfigEntry, plants
+) -> None:
+    """Réécrit les `unique_id` de la version 0.1 vers le format préfixé.
+
+    Sans ceci, changer de format créerait des entités neuves (`..._2`) et
+    laisserait les anciennes orphelines : les `entity_id` référencés dans les
+    automatisations et les tableaux de bord cesseraient de fonctionner, et
+    l'historique déjà enregistré serait perdu. La réécriture préserve les deux.
+    """
+    legacy_gateway = entry.data.get(CONF_GATEWAY_ID)
+    if legacy_gateway:
+        gateway_id = str(legacy_gateway).upper()
+    elif len(plants) == 1:
+        gateway_id = plants[0].gateway_id
+    else:
+        # Plusieurs installations et aucun indice sur celle d'origine :
+        # deviner ferait pire que mieux.
+        return
+
+    def _migrate(registry_entry: er.RegistryEntry) -> dict[str, str] | None:
+        new_key = LEGACY_UNIQUE_IDS.get(registry_entry.unique_id)
+        if new_key is None:
+            return None
+        return {"new_unique_id": f"{gateway_id}_{new_key}"}
+
+    await er.async_migrate_entries(hass, entry.entry_id, _migrate)
+
+
+async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
