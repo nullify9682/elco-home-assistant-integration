@@ -1,7 +1,7 @@
-"""Client de l'API mobile Remocon-net / Remote Thermo.
+"""Client for the Remocon-net / Remote Thermo mobile API.
 
-Le protocole est documenté dans PROTOCOL.md. Ce module est le seul endroit qui
-connaît le transport : le reste de l'intégration ne voit que `models.py`.
+The protocol is documented in PROTOCOL.md. This module is the only place that
+knows about the transport: the rest of the integration only sees `models.py`.
 """
 
 from __future__ import annotations
@@ -28,10 +28,10 @@ _LOGGER = logging.getLogger(__name__)
 
 _TIMEOUT = aiohttp.ClientTimeout(total=30)
 
-# Le serveur filtre sur le User-Agent : il répond 403 à tout ce qui ressemble à
-# Python, aiohttp ou Home Assistant, et 200 à celui du client Ktor de
-# l'application officielle. Il faut donc l'annoncer explicitement, sinon la
-# session par défaut de Home Assistant se fait refuser dès le login.
+# The server filters on the User-Agent: it responds 403 to anything that
+# looks like Python, aiohttp, or Home Assistant, and 200 to the official
+# app's Ktor client. It must therefore be announced explicitly, or Home
+# Assistant's default session gets refused right at login.
 _HEADERS = {
     "User-Agent": "ktor-client",
     "Accept": "application/json",
@@ -39,18 +39,18 @@ _HEADERS = {
 
 
 class ElcoApiError(Exception):
-    """Échec de communication avec l'API."""
+    """Failure to communicate with the API."""
 
 
 class ElcoAuthError(ElcoApiError):
-    """Identifiants refusés, ou jeton devenu invalide."""
+    """Credentials refused, or token became invalid."""
 
 
 class ElcoClient:
-    """Client asynchrone, un jeton partagé pour tout le compte.
+    """Async client, one token shared across the whole account.
 
-    Une seule session dessert toutes les installations : c'est ce qui permet de
-    n'ouvrir qu'une authentification quel que soit le nombre de pompes.
+    A single session serves all installations: this is what lets us open
+    only one authentication regardless of how many heat pumps there are.
     """
 
     def __init__(
@@ -69,11 +69,11 @@ class ElcoClient:
         self._token: str | None = None
         self._login_lock = asyncio.Lock()
 
-    # -- authentification ---------------------------------------------------
+    # -- authentication -------------------------------------------------------
 
     async def async_login(self) -> None:
-        """Obtient un jeton. Sérialisé : plusieurs appels concurrents n'en
-        déclenchent qu'un seul."""
+        """Obtains a token. Serialized: several concurrent calls only
+        trigger one."""
         async with self._login_lock:
             if self._token is not None:
                 return
@@ -97,17 +97,17 @@ class ElcoClient:
                 ) as resp:
                     if resp.status in (400, 401, 403):
                         raise ElcoAuthError(
-                            f"identifiants refusés (HTTP {resp.status})"
+                            f"credentials refused (HTTP {resp.status})"
                         )
                     if resp.status >= 400:
-                        raise ElcoApiError(f"login : HTTP {resp.status}")
+                        raise ElcoApiError(f"login: HTTP {resp.status}")
                     body = await resp.json(content_type=None)
             except aiohttp.ClientError as err:
-                raise ElcoApiError(f"login injoignable : {err}") from err
+                raise ElcoApiError(f"login unreachable: {err}") from err
 
             token = (body or {}).get("token")
             if not token:
-                raise ElcoAuthError("le serveur n'a pas renvoyé de jeton")
+                raise ElcoAuthError("the server did not return a token")
             self._token = token
 
     def invalidate(self) -> None:
@@ -122,10 +122,10 @@ class ElcoClient:
         payload: Any | None = None,
         _retry: bool = True,
     ) -> Any:
-        """Requête authentifiée, avec au plus une reconnexion.
+        """Authenticated request, with at most one reconnection.
 
-        Une seule : boucler sur des identifiants devenus invalides ferait
-        verrouiller le compte.
+        Only one: looping on credentials that have become invalid would get
+        the account locked out.
         """
         if self._token is None:
             await self.async_login()
@@ -150,35 +150,35 @@ class ElcoClient:
         if status in (401, 403):
             self.invalidate()
             if not _retry:
-                raise ElcoAuthError(f"{method} {path} : refusé après reconnexion")
+                raise ElcoAuthError(f"{method} {path}: refused after reconnecting")
             await self.async_login()
             return await self._request(
                 method, path, params=params, payload=payload, _retry=False
             )
 
         if status >= 400:
-            raise ElcoApiError(f"{method} {path} : HTTP {status}")
+            raise ElcoApiError(f"{method} {path}: HTTP {status}")
 
         if not body:
             return None
         try:
             return json.loads(body)
         except ValueError as err:
-            raise ElcoApiError(f"{method} {path} : réponse non-JSON") from err
+            raise ElcoApiError(f"{method} {path}: non-JSON response") from err
 
-    # -- découverte ---------------------------------------------------------
+    # -- discovery ------------------------------------------------------------
 
     async def async_get_plants(self) -> list[Plant]:
-        """Liste les installations du compte."""
+        """Lists the account's installations."""
         raw = await self._request("GET", "v2/remote/plants/lite")
         return [Plant.from_json(item) for item in raw or [] if item.get("gwId")]
 
     async def async_get_features(self, gateway_id: str) -> Features:
-        """Capacités et liste des zones — c'est la découverte du multi-zone."""
+        """Capabilities and zone list — this is multi-zone discovery."""
         raw = await self._request("GET", f"v2/remote/plants/{gateway_id}/features")
         return Features.from_json(raw or {})
 
-    # -- lectures -----------------------------------------------------------
+    # -- reads ------------------------------------------------------------------
 
     async def async_get_plant_data(
         self, gateway_id: str, zone: int = 1, *, first_round_trip: bool = False
@@ -200,14 +200,14 @@ class ElcoClient:
         features: dict[str, Any],
         items: list[tuple[int, int]],
     ) -> dict[str, DataItem]:
-        """Lit des mesures fines.
+        """Reads fine-grained measurements.
 
-        `items` est une liste de couples (identifiant, zone). Les identifiants
-        proviennent de `eRemoteDataItemDto` — surtout PAS de `eMenuItemDto`,
-        dont les numéros diffèrent et font répondre HTTP 500 (PROTOCOL.md §7).
+        `items` is a list of (identifier, zone) pairs. The identifiers come
+        from `eRemoteDataItemDto` — definitely NOT `eMenuItemDto`, whose
+        numbers differ and trigger an HTTP 500 (PROTOCOL.md §7).
 
-        Le serveur retire silencieusement ce que la passerelle ne gère pas :
-        l'absence d'une entrée dans la réponse n'est pas une erreur.
+        The server silently drops whatever the gateway doesn't support: a
+        missing entry in the response is not an error.
         """
         payload = {
             "useCache": False,
@@ -223,9 +223,9 @@ class ElcoClient:
                 payload=payload,
             )
         except ElcoApiError as err:
-            # Les mesures fines sont un supplément : leur absence ne doit pas
-            # priver l'utilisateur du reste.
-            _LOGGER.debug("dataItems indisponibles pour %s : %s", gateway_id, err)
+            # Fine-grained measurements are a bonus: their absence must not
+            # deprive the user of everything else.
+            _LOGGER.debug("dataItems unavailable for %s: %s", gateway_id, err)
             return {}
 
         out: dict[str, DataItem] = {}
@@ -235,7 +235,7 @@ class ElcoClient:
                 out[item.name] = item
         return out
 
-    # -- écritures ----------------------------------------------------------
+    # -- writes -----------------------------------------------------------------
 
     async def async_set_zone_temperatures(
         self,
@@ -248,14 +248,14 @@ class ElcoClient:
         old_comfort: float | None,
         old_reduced: float | None,
     ) -> None:
-        """Écrit les consignes d'une zone.
+        """Writes a zone's setpoints.
 
-        `is_cooling` décide si l'écriture porte sur la consigne de chauffage ou
-        celle de refroidissement. L'omettre modifie le mauvais paramètre dès que
-        la machine change de saison, sans message d'erreur.
+        `is_cooling` decides whether the write applies to the heating or the
+        cooling setpoint. Omitting it changes the wrong parameter as soon as
+        the machine switches season, with no error message.
 
-        `old_*` est le garde-fou anti-écrasement concurrent du protocole :
-        l'appelant doit fournir la valeur réellement lue.
+        `old_*` is the protocol's guard against concurrent overwrites: the
+        caller must supply the value that was actually read.
         """
         await self._request(
             "POST",
@@ -312,5 +312,5 @@ class ElcoClient:
 
 
 def build_state(gateway_id: str, raw: dict[str, Any]) -> PlantState:
-    """Convertit une réponse `bsbPlantData` en état de domaine."""
+    """Converts a `bsbPlantData` response into domain state."""
     return PlantState.from_json(gateway_id, raw or {})

@@ -1,10 +1,10 @@
-"""Capteurs binaires de diagnostic.
+"""Diagnostic binary sensors.
 
-Ils exposent les signaux BRUTS de la machine, désactivés par défaut. Leur
-raison d'être : l'état de synthèse (`sensor.*_operation`) repose sur des
-hypothèses — exclusivité chauffage / refroidissement / ECS, seuil de pente du
-ballon, seuil de départ pour le freecooling. Ces capteurs permettent de
-vérifier ces hypothèses sur des données réelles au lieu de les subir.
+They expose the machine's RAW signals, disabled by default. Their reason for
+existing: the synthesized state (`sensor.*_operation`) relies on assumptions
+— heating / cooling / DHW exclusivity, the tank's slope threshold, the flow
+threshold for freecooling. These sensors let you verify those assumptions
+against real data instead of just trusting them.
 """
 
 from __future__ import annotations

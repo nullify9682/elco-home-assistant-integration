@@ -1,4 +1,4 @@
-"""Capteurs."""
+"""Sensors."""
 
 from __future__ import annotations
 
@@ -29,11 +29,11 @@ from .models import PlantState
 
 @dataclass(frozen=True, kw_only=True)
 class ElcoSensorDescription(SensorEntityDescription):
-    """Description d'un capteur.
+    """Description of a sensor.
 
-    `value_fn` renvoie None quand la donnée n'est pas disponible ; `exists_fn`
-    décide si l'entité doit seulement être créée — beaucoup de mesures
-    dépendent de la génération de la passerelle et de son équipement.
+    `value_fn` returns None when the data isn't available; `exists_fn`
+    decides whether the entity should be created at all — many measurements
+    depend on the gateway's generation and equipment.
     """
 
     value_fn: Callable[[PlantState, ElcoCoordinator], float | str | None]
@@ -45,10 +45,9 @@ SENSORS: tuple[ElcoSensorDescription, ...] = (
         key="outside_temp",
         translation_key="outside_temp",
         device_class=SensorDeviceClass.TEMPERATURE,
-        # `state_class` est indispensable : sans elle, aucune statistique long
-        # terme n'est conservée et l'historique disparaît à la purge. Elle ne
-        # peut PAS être ajoutée après coup depuis le registre d'entités,
-        # contrairement à device_class et unit_of_measurement.
+        # `state_class` is essential: without it, no long-term statistics are
+        # kept and history disappears on purge. It CANNOT be added later from
+        # the entity registry, unlike device_class and unit_of_measurement.
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         value_fn=lambda state, _c: state.outside_temp,
@@ -130,7 +129,7 @@ async def async_setup_entry(
 
 
 class ElcoSensor(ElcoEntity, SensorEntity):
-    """Un capteur de l'installation."""
+    """A sensor for the installation."""
 
     entity_description: ElcoSensorDescription
 

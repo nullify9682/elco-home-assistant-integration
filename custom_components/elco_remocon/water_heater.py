@@ -1,11 +1,10 @@
-"""Entité water_heater — le ballon d'eau chaude sanitaire."""
+"""water_heater entity — the domestic hot water tank."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from homeassistant.components.water_heater import (
-    STATE_ECO,
     STATE_HEAT_PUMP,
     WaterHeaterEntity,
     WaterHeaterEntityFeature,
@@ -15,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ElcoConfigEntry
-from .const import DHW_MODE_OFF, DHW_MODE_ON
+from .const import DHW_MODE_OFF, DHW_MODE_ON, OP_IDLE
 from .coordinator import ElcoCoordinator
 from .entity import ElcoEntity
 
@@ -31,10 +30,10 @@ async def async_setup_entry(
 
 
 class ElcoWaterHeater(ElcoEntity, WaterHeaterEntity):
-    """Ballon ECS."""
+    """The DHW tank."""
 
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_operation_list = [STATE_OFF, STATE_ECO, STATE_HEAT_PUMP]
+    _attr_operation_list = [STATE_OFF, OP_IDLE, STATE_HEAT_PUMP]
     _attr_supported_features = (
         WaterHeaterEntityFeature.TARGET_TEMPERATURE
         | WaterHeaterEntityFeature.OPERATION_MODE
@@ -47,23 +46,23 @@ class ElcoWaterHeater(ElcoEntity, WaterHeaterEntity):
 
     @property
     def current_operation(self) -> str | None:
-        """État réel du ballon, en vocabulaire `water_heater`.
+        """Actual state of the tank, in `water_heater` vocabulary.
 
-        `heat_pump` seulement quand la machine travaille effectivement pour le
-        ballon : elle tourne alors qu'aucune zone ne demande rien. `eco`
-        signifie « autorisée, mais au repos ».
+        `heat_pump` only when the machine is actually working for the tank:
+        it is running while no zone is requesting anything. Otherwise the
+        tank is `idle` — allowed to heat, but currently at rest.
 
-        La version 0.1 concluait « en chauffe » dès que
-        `dhwMode == 1 and heatPumpOn`, ce qui est vrai en permanence dès que la
-        machine tourne pour le chauffage ou le refroidissement : le capteur
-        annonçait une chauffe pendant que le ballon perdait 0.9 °C/h.
+        Version 0.1 concluded "heating" as soon as
+        `dhwMode == 1 and heatPumpOn`, which holds permanently whenever the
+        machine runs for space heating or cooling: the sensor reported
+        heating while the tank was losing 0.9 °C/h.
         """
         data = self.coordinator.data
         if data is None:
             return None
         if data.dhw_off:
             return STATE_OFF
-        return STATE_HEAT_PUMP if data.dhw_heating else STATE_ECO
+        return STATE_HEAT_PUMP if data.dhw_heating else OP_IDLE
 
     @property
     def current_temperature(self) -> float | None:

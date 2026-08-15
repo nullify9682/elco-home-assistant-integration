@@ -55,7 +55,10 @@
     },
     "water_heater": {
       "dhw": {
-        "name": "Eau chaude sanitaire"
+        "name": "Eau chaude sanitaire",
+        "state": {
+          "idle": "En veille"
+        }
       }
     },
     "sensor": {

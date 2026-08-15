@@ -1,4 +1,4 @@
-"""Flux de configuration."""
+"""Configuration flow."""
 
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ STEP_USER_SCHEMA = vol.Schema(
 
 
 class ElcoConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Une entrée par compte ; les installations sont découvertes."""
+    """One entry per account; installations are discovered."""
 
     VERSION = 2
 
@@ -63,9 +63,9 @@ class ElcoConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             email = user_input[CONF_EMAIL].strip()
-            # Les identifiants sont VÉRIFIÉS avant de créer l'entrée : sans
-            # cela l'intégration s'installe puis échoue silencieusement, et
-            # l'utilisateur n'a aucun moyen de savoir ce qui cloche.
+            # Credentials are VERIFIED before creating the entry: without
+            # this the integration installs then silently fails, and the
+            # user has no way to know what's wrong.
             error, plant_count = await _async_validate(
                 self.hass, email, user_input[CONF_PASSWORD]
             )
@@ -92,7 +92,7 @@ class ElcoConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_reauth_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Permet de corriger le mot de passe sans tout reconfigurer."""
+        """Allows fixing the password without reconfiguring everything."""
         errors: dict[str, str] = {}
         entry = self._get_reauth_entry()
 
@@ -130,7 +130,7 @@ class ElcoConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class ElcoOptionsFlow(OptionsFlow):
-    """Cadence d'interrogation et point de bascule été/hiver."""
+    """Polling cadence and summer/winter switchover point."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -184,7 +184,7 @@ class ElcoOptionsFlow(OptionsFlow):
 
 
 async def _async_validate(hass, email: str, password: str) -> tuple[str | None, int]:
-    """Tente une connexion. Renvoie (clé d'erreur ou None, nb d'installations)."""
+    """Attempts a login. Returns (error key or None, installation count)."""
     session = async_create_clientsession(hass)
     client = ElcoClient(session, email, password)
     try:

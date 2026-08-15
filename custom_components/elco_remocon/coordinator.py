@@ -1,4 +1,4 @@
-"""Cycle de rafraîchissement et logique d'état."""
+"""Refresh cycle and state logic."""
 
 from __future__ import annotations
 
@@ -29,8 +29,8 @@ from .models import Bounded, Features, Plant, PlantState, ZoneState
 
 _LOGGER = logging.getLogger(__name__)
 
-# Noms tels que le serveur les renvoie dans `dataItems` — la requête se fait
-# par numéro, la réponse est indexée par nom.
+# Names as the server returns them in `dataItems` — the request is made by
+# number, the response is indexed by name.
 ITEM_CH_FLOW_TEMP_NAME = "ChFlowTemp"
 ITEM_IS_HEATING_PUMP_ON_NAME = "IsHeatingPumpOn"
 ITEM_CH_FLOW_SETPOINT_NAME = "ChFlowSetpointTemp"
@@ -39,27 +39,28 @@ ITEM_HEATING_CIRCUIT_PRESSURE_NAME = "HeatingCircuitPressure"
 
 @dataclass(slots=True)
 class _Optimistic:
-    """Une valeur affichée avant confirmation du serveur."""
+    """A value displayed before the server confirms it."""
 
     value: float
     expires: float
 
 
 class ElcoCoordinator(DataUpdateCoordinator[PlantState]):
-    """Rafraîchit une installation et décide de ce qu'elle est en train de faire.
+    """Refreshes an installation and decides what it's actually doing.
 
-    L'API ne dit nulle part si la machine chauffe la maison ou le ballon. Elle
-    ne fournit que des signaux qu'il faut savoir lire — et dont deux se
-    laissent facilement mal interpréter :
+    The API never states outright whether the machine is heating the house
+    or the tank. It only provides signals that must be read carefully —
+    two of which are easy to misinterpret:
 
-    - `hpOn` est au niveau de l'INSTALLATION : vrai dès que la pompe tourne,
-      pour le chauffage, le refroidissement ou l'eau chaude.
-    - `heatingOn` / `coolingOn` décrivent le mode HYDRAULIQUE de la machine,
-      pas l'activité de la zone. Mesuré le 2026-08-15 : `heatingOn` était vrai
-      par 30 °C dehors, parce que la machine avait quitté le refroidissement
-      pour pouvoir charger le ballon.
+    - `hpOn` is at the INSTALLATION level: true as soon as the pump is
+      running, for heating, cooling, or hot water.
+    - `heatingOn` / `coolingOn` describe the machine's HYDRAULIC mode, not
+      the zone's activity. Measured on 2026-08-15: `heatingOn` was true at
+      30 °C outside, because the machine had left cooling mode to charge
+      the tank.
 
-    Le seul signal qui dit ce que veut le circuit est `heatOrCoolReq`.
+    The only signal that says what the circuit actually wants is
+    `heatOrCoolReq`.
     """
 
     def __init__(
@@ -83,7 +84,7 @@ class ElcoCoordinator(DataUpdateCoordinator[PlantState]):
         self.summer_switchover = summer_switchover
         self._optimistic: dict[str, _Optimistic] = {}
 
-    # -- cycle --------------------------------------------------------------
+    # -- cycle --------------------------------------------------------------------
 
     async def _async_update_data(self) -> PlantState:
         gw = self.plant.gateway_id
@@ -97,19 +98,19 @@ class ElcoCoordinator(DataUpdateCoordinator[PlantState]):
             state.items = await self.client.async_get_data_items(
                 gw, self.features.raw, items
             )
-            # Le serveur retire silencieusement les mesures que la passerelle
-            # ne gère pas, et une valeur reçue peut malgré tout être écartée
-            # par ses propres bornes. Tracer les trois listes est le seul
-            # moyen de comprendre pourquoi une entité n'apparaît pas.
+            # The server silently drops measurements the gateway doesn't
+            # support, and a value it does return can still be discarded by
+            # its own bounds. Logging all three lists is the only way to
+            # understand why an entity fails to appear.
             _LOGGER.debug(
-                "dataItems demandés=%s reçus=%s exploitables=%s",
+                "dataItems requested=%s received=%s usable=%s",
                 [item_id for item_id, _ in items],
                 sorted(state.items),
                 sorted(name for name, item in state.items.items() if item.available),
             )
         except ElcoAuthError as err:
-            # Déclenche le flux de ré-authentification de Home Assistant plutôt
-            # que de réessayer indéfiniment avec des identifiants périmés.
+            # Triggers Home Assistant's re-authentication flow instead of
+            # retrying indefinitely with stale credentials.
             raise ConfigEntryAuthFailed(str(err)) from err
         except ElcoApiError as err:
             raise UpdateFailed(str(err)) from err
@@ -122,38 +123,38 @@ class ElcoCoordinator(DataUpdateCoordinator[PlantState]):
     def _first_zone(self) -> int:
         return self.features.zones[0].number if self.features.zones else 1
 
-    # -- interprétation -----------------------------------------------------
+    # -- interpretation -------------------------------------------------------
 
     @staticmethod
     def _is_dhw_producing(state: PlantState) -> bool:
-        """La machine tourne-t-elle pour le ballon ?
+        """Is the machine running for the tank?
 
-        La machine tourne (`hpOn`) alors qu'AUCUNE zone ne demande quoi que ce
-        soit (`heatOrCoolReq`) : elle ne peut travailler que pour l'eau chaude.
-        Aucun seuil, aucune saison, aucune inertie — c'est vrai dès la première
-        lecture du cycle.
+        The machine is running (`hpOn`) while NO zone is requesting anything
+        (`heatOrCoolReq`): it can only be working for hot water. No threshold,
+        no season, no inertia — this is true from the very first reading of
+        the cycle.
 
-        Une inférence par la pente de la température du ballon a été essayée et
-        abandonnée : elle mettait 30 minutes à réagir, parce que le ballon
-        commence par se REFROIDIR quand la charge démarre.
+        Inferring this from the tank temperature's slope was tried and
+        abandoned: it took 30 minutes to react, because the tank starts by
+        COOLING DOWN when charging begins.
         """
         if state.dhw_off or not state.heat_pump_on:
             return False
         return not any(zone.heat_or_cool_request for zone in state.zones.values())
 
     def _is_heating_season(self, state: PlantState) -> bool:
-        """Au-dessus du point de bascule, la maison ne peut pas être chauffée.
+        """Above the switchover point, the house cannot be heated.
 
-        Garde-fou contre le mode hydraulique : la machine passe en chauffage
-        pour produire de l'eau chaude et y reste ensuite, ce qui ferait
-        afficher « chauffage » en plein mois d'août.
+        Guard against the hydraulic mode: the machine switches to heating to
+        produce hot water and then stays there, which would otherwise
+        display "heating" in the middle of August.
         """
         if state.outside_temp is None:
             return True
         return state.outside_temp <= self.summer_switchover
 
     def zone_action(self, zone: ZoneState, state: PlantState | None = None) -> str:
-        """Ce que fait réellement une zone, en vocabulaire `HVACAction`."""
+        """What a zone is actually doing, in `HVACAction` vocabulary."""
         state = state or self.data
         if state is None or zone.mode == ZONE_MODE_OFF:
             return OP_OFF
@@ -166,10 +167,10 @@ class ElcoCoordinator(DataUpdateCoordinator[PlantState]):
         return OP_IDLE
 
     def zone_hvac_mode(self, zone: ZoneState, state: PlantState | None = None) -> str:
-        """Le régime affiché par le thermostat.
+        """The mode shown by the thermostat.
 
-        `auto` quand la machine est en marche sans qu'on puisse affirmer le
-        régime — c'est plus honnête qu'annoncer « chauffage » par 30 °C dehors.
+        `auto` when the machine is running without being able to assert the
+        mode — that's more honest than announcing "heating" at 30 °C outside.
         """
         state = state or self.data
         if state is None or zone.mode == ZONE_MODE_OFF:
@@ -181,11 +182,11 @@ class ElcoCoordinator(DataUpdateCoordinator[PlantState]):
         return "auto"
 
     def operation(self, state: PlantState | None = None) -> str:
-        """État du CIRCUIT, et de lui seul.
+        """State of the CIRCUIT, and only the circuit.
 
-        Vaut `idle` pendant une charge du ballon : c'est `dhw_operation` qui
-        porte cette information. Les deux capteurs décrivent deux axes
-        indépendants, pas deux vues du même état.
+        Reads `idle` while the tank is being charged: `dhw_operation` carries
+        that information instead. The two sensors describe two independent
+        axes, not two views of the same state.
         """
         state = state or self.data
         if state is None:
@@ -202,7 +203,7 @@ class ElcoCoordinator(DataUpdateCoordinator[PlantState]):
         return OP_IDLE
 
     def dhw_operation(self, state: PlantState | None = None) -> str:
-        """État du BALLON, en vocabulaire `HVACAction`."""
+        """State of the TANK, in `HVACAction` vocabulary."""
         state = state or self.data
         if state is None:
             return OP_IDLE
@@ -210,15 +211,15 @@ class ElcoCoordinator(DataUpdateCoordinator[PlantState]):
             return OP_OFF
         return OP_HEATING if state.dhw_heating else OP_IDLE
 
-    # -- affichage optimiste ------------------------------------------------
+    # -- optimistic display ---------------------------------------------------
 
     @callback
     def async_set_optimistic(self, key: str, value: float) -> None:
-        """Affiche immédiatement une valeur qu'on vient d'écrire, puis relit.
+        """Immediately shows a value that was just written, then re-reads.
 
-        La fenêtre est bornée : passé `OPTIMISTIC_TTL`, la valeur du serveur
-        reprend la main quoi qu'il arrive. On ne ment jamais plus longtemps
-        que ça, même si l'écriture a été refusée par la machine.
+        The window is bounded: past `OPTIMISTIC_TTL`, the server's value
+        takes over no matter what. We never lie for longer than that, even
+        if the write was refused by the machine.
         """
         self._optimistic[key] = _Optimistic(
             value=value,
@@ -235,7 +236,7 @@ class ElcoCoordinator(DataUpdateCoordinator[PlantState]):
         await self.async_request_refresh()
 
     def _apply_optimistic(self, state: PlantState) -> None:
-        """Recouvre l'état serveur par les valeurs en attente non expirées."""
+        """Overlays the server state with pending, non-expired values."""
         now = dt_util.utcnow().timestamp()
         for key, entry in list(self._optimistic.items()):
             if entry.expires <= now:
@@ -245,7 +246,7 @@ class ElcoCoordinator(DataUpdateCoordinator[PlantState]):
 
 
 def _overlay(state: PlantState, key: str, value: float) -> None:
-    """Applique une valeur optimiste sur l'état."""
+    """Applies an optimistic value onto the state."""
     if key == "dhw_comfort":
         state.dhw_comfort = _with_value(state.dhw_comfort, value)
     elif key == "dhw_mode":

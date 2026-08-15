@@ -1,120 +1,116 @@
-# Elco Remocon — intégration Home Assistant
+# Elco Remocon — Home Assistant integration
 
-Pilote une pompe à chaleur **Elco** (Aerotop et apparentées, passerelle BSB) via
-le cloud Remocon-net, sans matériel supplémentaire.
+Drives an **Elco** heat pump (Aerotop and related models, BSB gateway) via the
+Remocon-net cloud, with no extra hardware.
 
-> Intégration non officielle, sans lien avec Elco ni Ariston/Remote Thermo.
-> Elle s'appuie sur l'API de leur application mobile, qui n'est ni documentée ni
-> garantie : elle peut cesser de fonctionner sans préavis. Le protocole observé
-> est documenté dans [`PROTOCOL.md`](PROTOCOL.md).
+> Unofficial integration, not affiliated with Elco or Ariston/Remote Thermo.
+> It relies on their mobile app's API, which is neither documented nor
+> guaranteed: it may stop working without notice. The observed protocol is
+> documented in [`PROTOCOL.md`](PROTOCOL.md).
 
-## Ce que ça apporte
+## What it provides
 
-- **Thermostat par zone** — consigne, mode, programmation, avec la bonne
-  consigne selon la saison : chauffage et refroidissement ont des paramètres
-  distincts, et l'intégration écrit celui qui correspond au mode courant.
-- **Température de départ du circuit** — ce que la pompe produit réellement.
-  C'est elle qui permet de distinguer un *freecooling* d'un refroidissement
-  actif ou d'une chauffe du ballon.
-- **Deux états séparés, l'un pour le circuit, l'autre pour le ballon.** Quand
-  la machine charge l'eau chaude, le capteur de la pompe passe en *veille* et
-  celui du ballon en *chauffe* : on voit immédiatement **ce qui** est chauffé,
-  au lieu d'un « chauffage » ambigu.
-- **Eau chaude sanitaire** — température, consigne, marche/arrêt.
-- **Réponse immédiate** — la valeur réglée s'affiche tout de suite, puis
-  l'intégration relit la machine et corrige si elle a refusé.
-- **Plusieurs pompes, plusieurs zones** — découvertes automatiquement ; une
-  seule connexion pour tout le compte.
-- **Signaux bruts de diagnostic** — compresseur, circulateur, demandes par
-  zone, désactivés par défaut, pour vérifier ce que fait vraiment la machine.
+- **Per-zone thermostat** — setpoint, mode, scheduling, with the right
+  setpoint for the season: heating and cooling have separate parameters, and
+  the integration writes the one that matches the current mode.
+- **Circuit flow temperature** — what the pump actually produces. It's what
+  lets you tell apart *freecooling* from active cooling or the tank being
+  charged.
+- **Two separate states, one for the circuit and one for the tank.** When
+  the machine is charging hot water, the heat pump sensor goes *idle* and
+  the tank's sensor goes to *heating*: you immediately see **what** is being
+  heated, instead of an ambiguous "heating".
+- **Domestic hot water** — temperature, setpoint, on/off.
+- **Immediate feedback** — the value you set is shown right away, then the
+  integration re-reads the machine and corrects it if the write was refused.
+- **Multiple heat pumps, multiple zones** — discovered automatically; a
+  single connection for the whole account.
+- **Raw diagnostic signals** — compressor, circulator, per-zone requests,
+  disabled by default, to verify what the machine is actually doing.
 
 ## Installation
 
-Via [HACS](https://hacs.xyz), en dépôt personnalisé :
+Via [HACS](https://hacs.xyz), as a custom repository:
 
-1. HACS → menu ⋮ → **Dépôts personnalisés**
-2. URL : `https://github.com/nullify9682/elco-home-assistant-integration`, type
-   **Integration**
-3. Installer **Elco Remocon**, puis redémarrer Home Assistant
-4. **Paramètres → Appareils et services → Ajouter une intégration → Elco Remocon**
+1. HACS → ⋮ menu → **Custom repositories**
+2. URL: `https://github.com/nullify9682/elco-home-assistant-integration`,
+   type **Integration**
+3. Install **Elco Remocon**, then restart Home Assistant
+4. **Settings → Devices & services → Add integration → Elco Remocon**
 
-Renseignez l'adresse e-mail et le mot de passe de votre compte Remocon-net. Le
-`gateway_id` n'est plus demandé : les installations sont découvertes.
+Enter the email address and password of your Remocon-net account. The
+`gateway_id` is no longer requested: installations are discovered
+automatically.
 
-## Entités
+## Entities
 
-| Entité | Remarque |
+| Entity | Note |
 |---|---|
-| `climate` | une par zone ; `current_temperature` = ambiance si la machine a une sonde, sinon température de départ |
-| `water_heater` | ballon ECS |
-| `sensor` température extérieure | avec `state_class`, donc statistiques long terme |
-| `sensor` ballon d'eau chaude | |
-| `sensor` température de départ | selon la génération de passerelle |
-| `sensor` consigne de départ, pression du circuit | diagnostic, si disponibles |
-| `sensor` fonctionnement | le **circuit** seul : `off` / `idle` / `heating` / `cooling` — vaut `idle` pendant une charge du ballon |
-| `sensor` fonctionnement eau chaude | le **ballon** seul : `off` / `idle` / `heating` |
-| `binary_sensor` × 7 | signaux bruts, **désactivés par défaut** |
+| `climate` | one per zone; `current_temperature` = room temperature if the machine has a sensor, otherwise flow temperature |
+| `water_heater` | DHW tank |
+| `sensor` outside temperature | with `state_class`, so long-term statistics |
+| `sensor` hot water tank | |
+| `sensor` flow temperature | depends on the gateway generation |
+| `sensor` flow setpoint, circuit pressure | diagnostic, if available |
+| `sensor` operation | the **circuit** only: `off` / `idle` / `heating` / `cooling` — reads `idle` while the tank is being charged |
+| `sensor` hot water operation | the **tank** only: `off` / `idle` / `heating` |
+| `binary_sensor` × 7 | raw signals, **disabled by default** |
 
-Toutes les mesures fines dépendent de la génération de la passerelle. Le serveur
-retire silencieusement ce qu'elle ne gère pas : les entités correspondantes ne
-sont alors simplement pas créées.
+All fine-grained measurements depend on the gateway's generation. The server
+silently drops whatever it doesn't support: the corresponding entities are
+then simply not created.
 
 ## Options
 
-**Intervalle d'interrogation**, de 2 à 60 minutes (10 par défaut). Descendre
-capte les cycles courts de refroidissement et d'eau chaude, au prix d'une
-sollicitation accrue de leurs serveurs — un limiteur de débit existe côté
-Remote Thermo.
+**Polling interval**, from 2 to 60 minutes (10 by default). Lowering it
+catches brief cooling and hot water cycles, at the cost of more load on
+their servers — a rate limiter exists on the Remote Thermo side.
 
-**Point de bascule été/hiver**, 21 °C par défaut. Au-dessus de cette
-température extérieure, la machine ne peut pas chauffer la maison : elle n'est
-donc jamais annoncée en chauffage. Ce seuil existe parce que la pompe bascule
-sur son circuit de chauffage **pour charger le ballon**, et y reste ensuite —
-sans lui, le thermostat afficherait « chauffage » pendant des heures en plein
-mois d'août.
+**Summer/winter switchover point**, 21 °C by default. Above this outside
+temperature, the machine cannot be heating the house: it is therefore never
+reported as heating. The pump still switches to its heating circuit **to
+charge the tank**, and stays there afterwards — without this threshold, the
+thermostat would show "heating" for hours in the middle of August.
 
-## Pièges du protocole, et ce que l'intégration en fait
+## Protocol pitfalls, and what the integration does about them
 
-Ces comportements sont contre-intuitifs et documentés en détail dans
-[`PROTOCOL.md`](PROTOCOL.md) :
+These behaviors are counter-intuitive and documented in detail in
+[`PROTOCOL.md`](PROTOCOL.md):
 
-- **`hpOn` n'est pas « l'eau chaude chauffe ».** C'est un drapeau au niveau de
-  l'installation, vrai dès que la pompe tourne pour n'importe quelle raison.
-  Le croiser avec `dhwMode` produit un capteur qui annonce une chauffe pendant
-  que le ballon refroidit.
-- **`heatingOn` et `coolingOn` ne sont pas l'activité de la zone**, mais le
-  mode hydraulique de la machine. Mesuré : `heatingOn` vrai par 30 °C dehors,
-  parce que la pompe avait quitté le refroidissement pour charger le ballon.
-  Le seul signal qui dit ce que veut le circuit est **`heatOrCoolReq`**.
-  L'intégration en déduit tout le reste : la machine qui tourne alors qu'aucune
-  zone ne demande rien ne peut travailler que pour l'eau chaude.
-- **Deux consignes distinctes**, chauffage et refroidissement, avec des bornes
-  différentes. Le paramètre `isCooling` décide laquelle est écrite ; l'ignorer
-  modifie la mauvaise en plein été, sans erreur.
-- **La température extérieure n'est pas une température ambiante.** L'exposer
-  comme `current_temperature` d'un thermostat compare des grandeurs sans
-  rapport.
-- **`invalid` ne suffit pas à écarter une valeur.** Certains compteurs
-  renvoient un entier 32 bits en débordement sans lever de drapeau ; les bornes
-  déclarées les filtrent.
+- **`hpOn` does not mean "hot water is heating".** It's an installation-level
+  flag, true as soon as the pump is running for any reason. Crossing it with
+  `dhwMode` produces a sensor that reports heating while the tank is
+  cooling down.
+- **`heatingOn` and `coolingOn` are not the zone's activity**, but the
+  machine's hydraulic mode. Measured: `heatingOn` true at 30 °C outside,
+  because the pump had left cooling mode to charge the tank. The only
+  signal that says what the circuit actually wants is **`heatOrCoolReq`**.
+  The integration infers everything else from it: the machine running while
+  no zone is requesting anything can only be working for hot water.
+- **Two distinct setpoints**, heating and cooling, with different bounds.
+  The `isCooling` parameter decides which one gets written; ignoring it
+  changes the wrong one in the middle of summer, with no error.
+- **The outside temperature is not a room temperature.** Exposing it as a
+  thermostat's `current_temperature` compares unrelated quantities.
+- **`invalid` isn't enough to discard a value.** Some counters return an
+  overflowed 32-bit integer without raising any flag; the declared bounds
+  filter those out.
 
-## Migration depuis la version 0.1
+## Migration from version 0.1
 
-Les identifiants d'entités ont changé de format pour permettre plusieurs
-installations. La migration est **automatique** : les `entity_id` existants et
-tout l'historique enregistré sont conservés. Aucune automatisation ni tableau de
-bord n'est à reprendre.
+Entity identifiers changed format to support multiple installations.
+Migration is **automatic**: existing `entity_id` values and all recorded
+history are preserved. No automation or dashboard needs to be updated.
 
-## Limites connues
+## Known limitations
 
-- Les compteurs d'énergie du menu BSB ne sont pas exposés : ils ne sont
-  accessibles que par l'API web, et sur les machines testées les compteurs de
-  consommation ne sont pas instrumentés — un COP calculé à partir d'eux serait
-  faux.
-- Pas de remontée en push. La passerelle communique avec le cloud en MQTT, mais
-  ce canal n'est pas accessible à un client tiers ; l'interrogation périodique
-  reste la seule voie.
+- The BSB menu's energy counters are not exposed: they're only accessible
+  through the web API, and on the machines tested the consumption counters
+  aren't instrumented — a COP computed from them would be wrong.
+- No push updates. The gateway talks to the cloud over MQTT, but that
+  channel isn't accessible to a third-party client; periodic polling remains
+  the only way.
 
-## Licence
+## License
 
 MIT.

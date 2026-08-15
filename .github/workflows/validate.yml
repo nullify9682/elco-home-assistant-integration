@@ -5,9 +5,9 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    # L'API visée n'est ni documentée ni stable, et les exigences de HACS et de
-    # hassfest évoluent. Un passage hebdomadaire signale la casse avant qu'un
-    # utilisateur ne la découvre.
+    # The targeted API is neither documented nor stable, and HACS's and
+    # hassfest's requirements evolve. A weekly run flags breakage before a
+    # user discovers it.
     - cron: "0 6 * * 1"
   workflow_dispatch:
 
@@ -27,10 +27,10 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # Le dépôt est destiné à une installation en dépôt personnalisé, pas
-          # au catalogue HACS par défaut : les contrôles propres au catalogue
-          # (marque déclarée dans home-assistant/brands, topics du dépôt) ne
-          # s'appliquent pas et échoueraient à tort.
+          # This repository is meant for a custom-repository install, not
+          # the default HACS catalog: catalog-specific checks (brand
+          # declared in home-assistant/brands, repository topics) don't
+          # apply and would fail incorrectly.
           ignore: brands topics
 
   ruff:

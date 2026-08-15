@@ -1,8 +1,8 @@
-"""Objets de domaine, indépendants du transport.
+"""Domain objects, independent of the transport.
 
-Les entités et le coordinator ne manipulent que ceci — jamais des dictionnaires
-JSON bruts. C'est ce qui permettrait de changer d'API sous-jacente sans toucher
-aux plateformes.
+Entities and the coordinator only ever handle these — never raw JSON
+dictionaries. This is what would allow swapping the underlying API without
+touching the platforms.
 """
 
 from __future__ import annotations
@@ -15,15 +15,15 @@ from .const import DHW_MODE_OFF
 
 @dataclass(frozen=True, slots=True)
 class Plant:
-    """Une installation du compte."""
+    """An installation on the account."""
 
     gateway_id: str
     name: str
     serial: str | None = None
     firmware: str | None = None
     system_type: int | None = None
-    # Meilleur indicateur de génération : sous 8, les rapports de consommation
-    # et une partie des dataItems ne répondent pas (PROTOCOL.md §7).
+    # Best indicator of generation: below 8, consumption reports and some
+    # dataItems don't respond (PROTOCOL.md §7).
     api_version: int | None = None
 
     @classmethod
@@ -41,7 +41,7 @@ class Plant:
 
 @dataclass(frozen=True, slots=True)
 class ZoneInfo:
-    """Description d'une zone, issue de `plants/{gw}/features`."""
+    """Zone description, from `plants/{gw}/features`."""
 
     number: int
     name: str
@@ -59,7 +59,7 @@ class ZoneInfo:
 
 @dataclass(frozen=True, slots=True)
 class Features:
-    """Capacités déclarées de l'installation."""
+    """Declared capabilities of the installation."""
 
     zones: tuple[ZoneInfo, ...] = ()
     heat_pump: bool = False
@@ -85,7 +85,7 @@ class Features:
 
 @dataclass(frozen=True, slots=True)
 class Bounded:
-    """Une valeur numérique avec ses bornes, telles que l'API les fournit."""
+    """A numeric value with its bounds, as the API provides them."""
 
     value: float | None = None
     min: float | None = None
@@ -108,7 +108,7 @@ class Bounded:
 
 @dataclass(frozen=True, slots=True)
 class DataItem:
-    """Une mesure renvoyée par `dataItems/get`."""
+    """A measurement returned by `dataItems/get`."""
 
     name: str
     zone: int
@@ -122,16 +122,16 @@ class DataItem:
 
     @property
     def available(self) -> bool:
-        """Vrai si la valeur est réellement exploitable.
+        """True if the value is actually usable.
 
-        `invalid` ne suffit pas : certains compteurs renvoient un entier 32
-        bits en débordement (par exemple 4294966879 pour −417) sans lever le
-        moindre drapeau. Les bornes déclarées les écartent.
+        `invalid` isn't enough: some counters return an overflowed 32-bit
+        integer (for instance 4294966879 for −417) without raising any flag.
+        The declared bounds filter those out.
 
-        Mais les bornes ne sont retenues que si elles délimitent réellement
-        quelque chose : les items booléens annoncent `min == max == 0`, et une
-        comparaison naïve rejetterait leur seul état intéressant. Mesuré sur
-        `IsHeatingPumpOn`, qui vaut 1 avec des bornes [0, 0].
+        But the bounds are only honored if they actually delimit something:
+        boolean items report `min == max == 0`, and a naive comparison would
+        reject their only interesting state. Measured on `IsHeatingPumpOn`,
+        which is 1 with bounds [0, 0].
         """
         if self.value is None or self.invalid or self.error:
             return False
@@ -158,7 +158,7 @@ class DataItem:
 
 @dataclass
 class ZoneState:
-    """État courant d'une zone."""
+    """Current state of a zone."""
 
     number: int
     mode: int | None = None
@@ -174,12 +174,12 @@ class ZoneState:
 
     @property
     def active_comfort(self) -> Bounded:
-        """La consigne de confort qui correspond au mode courant.
+        """The comfort setpoint that matches the current mode.
 
-        Chauffage et refroidissement ont des consignes SÉPARÉES, avec des
-        bornes différentes. Lire ou écrire la mauvaise est le défaut le plus
-        pernicieux de ce protocole : en été, régler la température agit sur le
-        paramètre de chauffage sans que rien ne le signale.
+        Heating and cooling have SEPARATE setpoints, with different bounds.
+        Reading or writing the wrong one is this protocol's most insidious
+        defect: in summer, adjusting the temperature silently acts on the
+        heating parameter, with nothing to signal it.
         """
         return self.cool_comfort if self.cooling_on else self.ch_comfort
 
@@ -207,7 +207,7 @@ class ZoneState:
 
 @dataclass
 class PlantState:
-    """État courant d'une installation, tel que les entités le consomment."""
+    """Current state of an installation, as consumed by entities."""
 
     gateway_id: str
     outside_temp: float | None = None
@@ -218,16 +218,16 @@ class PlantState:
     dhw_reduced: Bounded = field(default_factory=Bounded)
     dhw_mode: int | None = None
     dhw_enabled: bool = False
-    # ATTENTION : drapeau au niveau de l'INSTALLATION. Vrai dès que la pompe
-    # tourne, pour le chauffage, le refroidissement OU l'ECS. Le croiser avec
-    # `dhw_mode` pour en déduire « l'ECS chauffe » est FAUX — c'est le bug qui
-    # a motivé cette réécriture (PROTOCOL.md §4).
+    # WARNING: flag at the INSTALLATION level. True as soon as the pump is
+    # running, for heating, cooling, OR DHW. Crossing it with `dhw_mode` to
+    # infer "DHW is heating" is WRONG — that's the bug that motivated this
+    # rewrite (PROTOCOL.md §4).
     heat_pump_on: bool = False
     flame: bool = False
     zones: dict[int, ZoneState] = field(default_factory=dict)
     items: dict[str, DataItem] = field(default_factory=dict)
-    # Déduit de la pente du ballon, faute d'un champ le disant (voir
-    # `coordinator.ElcoCoordinator._infer_dhw_heating`).
+    # Inferred from the tank's slope, absent a field that states it directly
+    # (see `coordinator.ElcoCoordinator._is_dhw_producing`).
     dhw_heating: bool = False
 
     @property

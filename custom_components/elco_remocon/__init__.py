@@ -1,4 +1,4 @@
-"""Intégration Elco Remocon pour Home Assistant."""
+"""Elco Remocon integration for Home Assistant."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ type ElcoConfigEntry = ConfigEntry[dict[str, ElcoCoordinator]]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ElcoConfigEntry) -> bool:
-    """Ouvre une session pour le compte et découvre ses installations."""
+    """Opens a session for the account and discovers its installations."""
     session = async_create_clientsession(hass)
     client = ElcoClient(
         session,
@@ -53,7 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ElcoConfigEntry) -> bool
         raise ConfigEntryNotReady(str(err)) from err
 
     if not plants:
-        raise ConfigEntryNotReady("aucune installation sur ce compte")
+        raise ConfigEntryNotReady("no installation on this account")
 
     await _async_migrate_unique_ids(hass, entry, plants)
 
@@ -68,8 +68,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ElcoConfigEntry) -> bool
         try:
             features = await client.async_get_features(plant.gateway_id)
         except ElcoApiError as err:
-            # Une installation injoignable ne doit pas priver les autres.
-            _LOGGER.warning("installation %s ignorée : %s", plant.gateway_id, err)
+            # An unreachable installation must not deprive the others.
+            _LOGGER.warning("installation %s skipped: %s", plant.gateway_id, err)
             continue
         coordinator = ElcoCoordinator(
             hass, client, plant, features, interval, switchover
@@ -78,7 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ElcoConfigEntry) -> bool
         coordinators[plant.gateway_id] = coordinator
 
     if not coordinators:
-        raise ConfigEntryNotReady("aucune installation joignable")
+        raise ConfigEntryNotReady("no installation reachable")
 
     entry.runtime_data = coordinators
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
@@ -91,29 +91,29 @@ async def async_unload_entry(hass: HomeAssistant, entry: ElcoConfigEntry) -> boo
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Fait passer une entrée de la version 1 à la version 2.
+    """Moves an entry from version 1 to version 2.
 
-    La version 1 stockait un `gateway_id` saisi à la main et ne gérait qu'une
-    installation. La version 2 découvre les installations du compte ; le
-    `gateway_id` est conservé, il sert à réécrire les anciens `unique_id`.
+    Version 1 stored a manually entered `gateway_id` and only handled one
+    installation. Version 2 discovers the account's installations; the
+    `gateway_id` is kept, and used to rewrite the old `unique_id` values.
     """
     if entry.version > 2:
         return False
     if entry.version == 1:
         hass.config_entries.async_update_entry(entry, version=2)
-        _LOGGER.debug("entrée %s migrée en version 2", entry.entry_id)
+        _LOGGER.debug("entry %s migrated to version 2", entry.entry_id)
     return True
 
 
 async def _async_migrate_unique_ids(
     hass: HomeAssistant, entry: ConfigEntry, plants
 ) -> None:
-    """Réécrit les `unique_id` de la version 0.1 vers le format préfixé.
+    """Rewrites version 0.1's `unique_id` values to the prefixed format.
 
-    Sans ceci, changer de format créerait des entités neuves (`..._2`) et
-    laisserait les anciennes orphelines : les `entity_id` référencés dans les
-    automatisations et les tableaux de bord cesseraient de fonctionner, et
-    l'historique déjà enregistré serait perdu. La réécriture préserve les deux.
+    Without this, changing the format would create new entities (`..._2`) and
+    leave the old ones orphaned: `entity_id` values referenced in automations
+    and dashboards would stop working, and previously recorded history would
+    be lost. The rewrite preserves both.
     """
     legacy_gateway = entry.data.get(CONF_GATEWAY_ID)
     if legacy_gateway:
@@ -121,8 +121,8 @@ async def _async_migrate_unique_ids(
     elif len(plants) == 1:
         gateway_id = plants[0].gateway_id
     else:
-        # Plusieurs installations et aucun indice sur celle d'origine :
-        # deviner ferait pire que mieux.
+        # Multiple installations and no clue which one is the original one:
+        # guessing would do more harm than good.
         return
 
     def _migrate(registry_entry: er.RegistryEntry) -> dict[str, str] | None:

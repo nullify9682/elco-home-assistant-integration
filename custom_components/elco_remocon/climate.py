@@ -1,4 +1,4 @@
-"""Entité climate — une par zone de chauffage."""
+"""climate entity — one per heating zone."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ async def async_setup_entry(
 
 
 class ElcoZoneClimate(ElcoZoneEntity, ClimateEntity):
-    """Un circuit de chauffage."""
+    """A heating circuit."""
 
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.AUTO, HVACMode.HEAT, HVACMode.COOL]
@@ -64,19 +64,20 @@ class ElcoZoneClimate(ElcoZoneEntity, ClimateEntity):
 
     def __init__(self, coordinator: ElcoCoordinator, zone: int, zone_name: str) -> None:
         super().__init__(coordinator, zone, "climate")
-        # Une seule zone : l'entité porte le nom de l'appareil, sans suffixe
-        # inutile. Plusieurs zones : chacune prend son nom.
+        # A single zone: the entity carries the device's name, with no
+        # pointless suffix. Multiple zones: each one takes its own name.
         self._attr_name = None if len(coordinator.features.zones) == 1 else zone_name
 
-    # -- lecture ------------------------------------------------------------
+    # -- reads ------------------------------------------------------------------
 
     @property
     def hvac_mode(self) -> HVACMode:
-        """Régime de la zone.
+        """The zone's mode.
 
-        Au-dessus du point de bascule été/hiver, `heat` est impossible : la
-        machine passe en mode hydraulique chauffage pour charger le ballon et
-        y reste, ce qui afficherait « chauffage » en plein mois d'août.
+        Above the summer/winter switchover point, `heat` is impossible: the
+        machine switches to hydraulic heating mode to charge the tank and
+        stays there, which would otherwise display "heating" in the middle
+        of August.
         """
         zone = self.zone_state
         if zone is None:
@@ -97,12 +98,12 @@ class ElcoZoneClimate(ElcoZoneEntity, ClimateEntity):
 
     @property
     def current_temperature(self) -> float | None:
-        """Température de la zone.
+        """The zone's temperature.
 
-        La sonde d'ambiance quand la machine en a une ; sinon la température de
-        DÉPART du circuit, qui est ce que la pompe produit réellement. Jamais
-        la température extérieure : la comparer à une consigne d'ambiance n'a
-        aucun sens, et c'est ce que faisait la version 0.1.
+        The room sensor when the machine has one; otherwise the circuit's
+        FLOW temperature, which is what the pump actually produces. Never
+        the outside temperature: comparing it to a room setpoint makes no
+        sense, and that's what version 0.1 did.
         """
         zone = self.zone_state
         if zone is None:
@@ -146,7 +147,7 @@ class ElcoZoneClimate(ElcoZoneEntity, ClimateEntity):
             "reduced_setpoint": zone.active_reduced.value,
         }
 
-    # -- écriture -----------------------------------------------------------
+    # -- writes ---------------------------------------------------------------
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         temperature = kwargs.get(ATTR_TEMPERATURE)
@@ -156,8 +157,9 @@ class ElcoZoneClimate(ElcoZoneEntity, ClimateEntity):
         if zone is None:
             return
 
-        # `is_cooling` décide LEQUEL des deux paramètres est écrit. Se tromper
-        # règle la consigne de chauffage en plein été, sans erreur visible.
+        # `is_cooling` decides WHICH of the two parameters is written.
+        # Getting it wrong sets the heating setpoint in the middle of
+        # summer, with no visible error.
         is_cooling = zone.cooling_on
         await self.coordinator.client.async_set_zone_temperatures(
             self.coordinator.plant.gateway_id,

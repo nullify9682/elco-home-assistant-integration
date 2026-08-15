@@ -55,7 +55,10 @@
     },
     "water_heater": {
       "dhw": {
-        "name": "Domestic hot water"
+        "name": "Domestic hot water",
+        "state": {
+          "idle": "Idle"
+        }
       }
     },
     "sensor": {

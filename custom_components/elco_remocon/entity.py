@@ -1,4 +1,4 @@
-"""Socle commun des entités."""
+"""Common base for entities."""
 
 from __future__ import annotations
 
@@ -10,13 +10,12 @@ from .coordinator import ElcoCoordinator
 
 
 class ElcoEntity(CoordinatorEntity[ElcoCoordinator]):
-    """Entité rattachée à une installation.
+    """Entity attached to an installation.
 
-    `_attr_has_entity_name = True` : le nom affiché est composé par Home
-    Assistant à partir du nom de l'APPAREIL et du nom de l'entité. Les entités
-    ne doivent donc jamais répéter « Elco » ni le nom de la pompe — c'est ce
-    qui produisait des libellés incohérents comme « Elco Ext Temp » à côté de
-    « Boiler Temp ».
+    `_attr_has_entity_name = True`: the displayed name is composed by Home
+    Assistant from the DEVICE name and the entity name. Entities must
+    therefore never repeat "Elco" or the heat pump's name — that's what
+    produced inconsistent labels like "Elco Ext Temp" next to "Boiler Temp".
     """
 
     _attr_has_entity_name = True
@@ -25,9 +24,9 @@ class ElcoEntity(CoordinatorEntity[ElcoCoordinator]):
         super().__init__(coordinator)
         plant = coordinator.plant
         self._key = key
-        # Préfixé par la passerelle : c'est ce qui rend plusieurs installations
-        # possibles. La migration depuis la version 0.1 réécrit les anciens
-        # identifiants non préfixés (voir __init__.async_migrate_entry).
+        # Prefixed by the gateway: this is what makes multiple installations
+        # possible. The migration from version 0.1 rewrites the old
+        # unprefixed identifiers (see __init__.async_migrate_entry).
         self._attr_unique_id = f"{plant.gateway_id}_{key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, plant.gateway_id)},
@@ -44,7 +43,7 @@ class ElcoEntity(CoordinatorEntity[ElcoCoordinator]):
 
 
 class ElcoZoneEntity(ElcoEntity):
-    """Entité rattachée à une zone d'une installation."""
+    """Entity attached to a zone of an installation."""
 
     def __init__(self, coordinator: ElcoCoordinator, zone: int, key: str) -> None:
         super().__init__(coordinator, f"{key}_zone_{zone}")
@@ -61,11 +60,11 @@ class ElcoZoneEntity(ElcoEntity):
 
 
 def _model(plant) -> str:
-    """Libellé de modèle, à défaut d'un champ le donnant.
+    """Model label, absent a field that provides one.
 
-    L'API ne renvoie qu'un `gwSysType` numérique ; on l'affiche tel quel plutôt
-    que d'inventer un nom commercial qui pourrait être faux.
+    The API only returns a numeric `gwSysType`; we display it as-is rather
+    than inventing a commercial name that could be wrong.
     """
     if plant.system_type is None:
-        return "Passerelle BSB"
-    return f"Passerelle BSB (type {plant.system_type})"
+        return "BSB gateway"
+    return f"BSB gateway (type {plant.system_type})"
