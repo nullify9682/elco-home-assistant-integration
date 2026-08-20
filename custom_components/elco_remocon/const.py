@@ -91,10 +91,15 @@ OPTIMISTIC_TTL: Final = 150
 DHW_MODE_OFF: Final = 0
 DHW_MODE_ON: Final = 1
 
+# Bug corrige le 2026-08-20 : COMFORT et REDUCED etaient inverses. Confirme
+# par David en lisant zoneData.mode.allowedOptionTexts sur l'API web R2 --
+# ["Mode protection", "Automatique", "Reduit", "Confort"] pour les valeurs
+# [0, 1, 2, 3]. Le preset "eco" (REDUCED) commandait donc en realite le
+# confort, et "comfort" (COMFORT) commandait le mode reduit.
 ZONE_MODE_OFF: Final = 0
 ZONE_MODE_AUTO: Final = 1
-ZONE_MODE_COMFORT: Final = 2
-ZONE_MODE_REDUCED: Final = 3
+ZONE_MODE_REDUCED: Final = 2
+ZONE_MODE_COMFORT: Final = 3
 
 # --- operating states ---------------------------------------------------------
 # Home Assistant's `HVACAction` vocabulary, nothing invented. NEVER return
