@@ -370,6 +370,108 @@ is the most plausible explanation for the HTTP 500s on `menuItems` and
 integration must therefore never assume that an `eMenuItemDto` catalog
 identifier is readable: it must probe, and degrade gracefully.
 
+### Zone mode: one write, never two (decompiled 2026-08-20)
+
+The raw BSB tree (§5) lists "Heating circuit 1 — Operating mode" and
+"Cooling circuit 1 — Operating mode" as two separate addresses (700 and
+901), which looks like two independently-writable registers reachable
+through `isCooling`. **They are not, from the app's perspective, on
+`/api/v2/`.** Decompiled `com.remotethermo.remoconnet` 7.0.1.40358 (see
+"How to redo this" below) to settle it after an incident where a cooling
+zone switched to heating the moment it was told to turn off.
+
+`SetBsbZoneModeAsyncOperationBase.doRunAsync` — used by all four zone
+buttons (Off/Auto/Reduced/Comfort) — issues exactly **one** `setMode`
+call:
+
+```kotlin
+val isCooling = mPrevZoneData.isCoolingActive()   // current hydraulic state, read before the write
+zoneProxy.setMode(gatewayId, zone, isCooling, newMode, prevMode)
+```
+
+`isCooling` always mirrors `BsbZoneData.isCoolingActive` — a read-only
+flag reflecting current hydraulic activity, never something the operation
+decides based on the target mode. **The app has no heat-only or
+cool-only command at all**: only `eBsbZoneMode` exists (`Off`, `Auto`,
+`Reduced`, `Comfort`), and the machine alone decides whether `Auto` ends
+up heating or cooling. `SetBsbZoneOffAsyncOperation` and friends are
+trivial subclasses with no override — there is no special-cased "off
+means write both circuits" path anywhere.
+
+`eBsbZoneMode`'s wire values are an explicit constructor int, not
+ordinal-dependent: `Off(0)`, `Auto(1)`, `Reduced(2)`, `Comfort(3)`. Worth
+double-checking against any code that assumes a different order — a
+prior version of the Home Assistant integration had `Comfort`/`Reduced`
+swapped (2/3 instead of 3/2), which silently sent "eco" requests as
+"comfort" and vice versa.
+
+`BsbZoneData` (the client-side model) has exactly one `mode` field
+(`OptionVariable<eBsbZoneMode>`); `isHeatingActive`/`isCoolingActive` are
+separate plain booleans, not a second mode value. Confirms §4's warning
+that these two describe hydraulic activity, not a settable mode.
+
+### Zone mode: the write can silently do nothing
+
+`SetBsbZoneModeAsyncOperationBase.onAfterEnqueue()` always follows a mode
+write with `SynchronizeBsbZoneDataAsyncOperation`, delayed 5 s
+(`AsyncOperationHelper.withDefaultRunDelay` resolves to `Level.TRACE_INT`
+in the decompiled source — a JADX artifact where a plain `5000` literal
+happened to match logback's `TRACE` constant; read it as `5000 ms`). That
+operation:
+
+- Fetches the zone with the cache fully bypassed
+  (`CacheExpirationPolicy.getAlwaysExpired()`).
+- Compares the fresh `mode` (and all four setpoints) against the values
+  expected right after the write.
+- On mismatch: logs a `WARNING` and returns failure. **No retry** — the
+  queue just records the failure (`mFailedTrackableOperations`) for the
+  UI to surface; the user is expected to notice and retry by hand.
+
+**An HTTP 200 on `POST .../bsbZones/{gw}/{z}/mode` is therefore not proof
+the write took effect.** This is the most likely explanation for the
+2026-08-20 incident (a cooling zone switching to heating instead of
+turning off): the write silently didn't land, and nothing detected it
+until Home Assistant's next scheduled poll picked up whatever the machine
+was actually doing by then. The Home Assistant integration's
+`climate.py` (`_async_write_zone_mode`) now reproduces this same
+write-then-verify pattern.
+
+### Cache TTL for zone data (client-side, informational)
+
+`DefaultCacheExpirationPolicy.doCheckIfExpiredBsbZoneData`: base **5
+minutes**, multiplied by a per-policy factor. The zone screen's
+`loadDataIfExpired()` (triggered when the screen becomes active) uses the
+"slow" policy, factor 2.0 → **10 minutes** before it forces a reload. A
+few sub-branches drop to `2 × factor` = 4 minutes in specific states.
+Roughly comparable to this integration's own default 10-minute
+`scan_interval` — opening the app cold is not meaningfully fresher than
+Home Assistant's own poll; the freshness gap, if any, is smaller than it
+looks.
+
+### How to redo this
+
+APK used (2026-08-20): `~/Downloads/Remocon%2BNET_7.0.1.40358_apkcombo.com.xapk`
+on the dev Mac — an `.xapk` is a zip of per-ABI `.apk` files; decompile
+`com.remotethermo.remoconnet.apk` specifically, the others are
+resource/ABI splits. `jadx` is installed at `/opt/homebrew/bin/jadx`:
+
+```
+unzip -o "<file>.xapk" -d xapk_extracted
+jadx --no-res -d decompiled xapk_extracted/com.remotethermo.remoconnet.apk
+```
+
+Expect several hundred decompilation errors on Kotlin coroutine state
+machines — normal, the surrounding business logic still comes out
+readable. Relevant packages:
+
+| Package | What's there |
+|---|---|
+| `.../operations/` | one `Set*AsyncOperation*` class per user action. Start from `SetBsbZoneModeAsyncOperationBase` and its `SetBsbZone{Off,Auto,Comfort,Reduced}AsyncOperation` subclasses; `SynchronizeBsbZoneDataAsyncOperation` for the post-write check |
+| `.../data/local/models/` | client-side models and enums, e.g. `BsbZoneData`, `eBsbZoneMode` |
+| `.../data/remote/proxies/BsbZoneProxy.java` | the actual HTTP calls (`getData`, `setMode`, `setTemperatures`) |
+| `.../data/remote/services/cache_policies/` | `DefaultCacheExpirationPolicy` and friends, one `doCheckIfExpired*` method per entity type |
+| `.../presentation/BsbHomeViewModel.java` | the zone screen's view-model — `loadDataIfExpired`, `saveZoneOffMode`, etc. |
+
 ## 8. Caution
 
 A rate limiter exists server-side. Observed readings come back roughly
