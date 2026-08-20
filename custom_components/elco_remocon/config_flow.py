@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import socket
 from collections.abc import Mapping
 from typing import Any
 
@@ -185,7 +186,8 @@ class ElcoOptionsFlow(OptionsFlow):
 
 async def _async_validate(hass, email: str, password: str) -> tuple[str | None, int]:
     """Attempts a login. Returns (error key or None, installation count)."""
-    session = async_create_clientsession(hass)
+    # Same IPv4-only rationale as __init__.py's session.
+    session = async_create_clientsession(hass, family=socket.AF_INET)
     client = ElcoClient(session, email, password)
     try:
         await client.async_login()

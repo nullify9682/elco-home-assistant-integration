@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import socket
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
@@ -37,7 +38,13 @@ type ElcoConfigEntry = ConfigEntry[dict[str, ElcoCoordinator]]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ElcoConfigEntry) -> bool:
     """Opens a session for the account and discovers its installations."""
-    session = async_create_clientsession(hass)
+    # IPv4 only: on a dual-stack LAN whose WAN has no IPv6 egress, aiohttp's
+    # default resolver still issues an AAAA query alongside the A one, and if
+    # it lands on an IPv6 nameserver that isn't actually reachable, that leg
+    # times out and fails the whole getaddrinfo() call — even though the A
+    # query would have resolved fine on its own. `family` is the same knob
+    # core's `cloudflare` integration uses, for an unrelated reason.
+    session = async_create_clientsession(hass, family=socket.AF_INET)
     client = ElcoClient(
         session,
         entry.data[CONF_EMAIL],

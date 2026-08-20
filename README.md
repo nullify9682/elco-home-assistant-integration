@@ -110,6 +110,17 @@ history are preserved. No automation or dashboard needs to be updated.
 - No push updates. The gateway talks to the cloud over MQTT, but that
   channel isn't accessible to a third-party client; periodic polling remains
   the only way.
+- **The session forces IPv4** (`family=socket.AF_INET`, since 1.3.0; the
+  `family` parameter is the same one core's `cloudflare` integration exposes,
+  for an unrelated reason). On a dual-stack LAN whose WAN has no IPv6
+  egress, the default resolver still issues an AAAA query alongside the A
+  one; if it gets routed to an IPv6 nameserver that isn't actually reachable
+  (a router advertising itself over IPv6 for the LAN without forwarding
+  DNS to the internet, for instance), that leg times out and takes the
+  whole lookup down with it — even though the A query would have resolved
+  fine. Seen as sporadic `Timeout while contacting DNS servers` errors,
+  each usually recovering on the very next poll. Forcing IPv4 skips the
+  AAAA query entirely.
 
 ## License
 
