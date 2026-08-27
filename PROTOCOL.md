@@ -249,6 +249,49 @@ be forced explicitly on **every** request.
 `act` contains the account's identity (name, email, phone, country). Never
 log it.
 
+### An expired token answers `405`, not `401`
+
+**Check this second, on any unexplained HTTP 405.** The status this server
+returns for a token it does not accept is **`405 Method Not Allowed`**.
+Not 401, not 403, and no body to disambiguate it.
+
+Verified 2026-08-27 with no credentials at all — an absent, empty or
+syntactically invalid `ar.authToken` behaves identically:
+
+| Request | Response |
+|---|---|
+| `GET /v2/remote/plants/lite` | **405** |
+| `GET /v2/remote/plants/{gw}/features` | **405** |
+| `GET /v2/remote/bsbPlantData/{gw}` | **405** |
+| `GET /v2/remote/bsbZones/{gw}/1` | **405** |
+| `GET /v2/remote/actions/{gw}/mostRecent` | **405** |
+| `POST /v2/remote/bsbPlantData/{gw}/dhwMode` | **405** |
+| `POST /v2/remote/bsbZones/{gw}/1/mode` | **405** |
+
+Reproduce it in one line, no account needed:
+
+```
+curl -s -o /dev/null -w '%{http_code}\n' -A ktor-client \
+  -H 'ar.authToken: bogus' \
+  https://www.remocon-net.remotethermo.com/api/v2/remote/plants/lite
+```
+
+**Why this matters.** A client that only treats 401/403 as "authenticate
+again" never drops the dead token, and every later cycle replays it for the
+same 405. That is not a passing error — it is permanent, until the process
+restarts. It cost 46 h of silence on 2026-08-25: the Home Assistant config
+entry stayed `loaded` and merely logged one failed update per cycle, because
+a failed refresh is not a setup failure. Observed token lifetime was roughly
+**5 days**.
+
+The trap is that 405 is *also* the honest HTTP meaning of "wrong method", so
+it cannot be read as "bad credentials" either. The two are indistinguishable
+from the outside, which settles what a client should do: re-authenticate and
+retry once, then — if a token minted seconds ago is refused all the same —
+report a failed cycle, **not** an authentication failure. A fresh token
+refused is not a password problem, and prompting for the password would send
+the user chasing the wrong thing.
+
 ### Useful endpoints for a BSB gateway
 
 | Method | Path | Content |

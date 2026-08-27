@@ -15,7 +15,11 @@ CONF_GATEWAY_ID: Final = "gateway_id"
 CONF_SCAN_INTERVAL_MINUTES: Final = "scan_interval_minutes"
 CONF_SUMMER_SWITCHOVER: Final = "summer_switchover"
 
-DEFAULT_SCAN_INTERVAL_MINUTES: Final = 10
+# 15 min since v1.4.0 (was 10). The gateway itself only refreshes its cloud
+# picture every few minutes, so a shorter cycle mostly buys duplicate
+# readings; writes don't wait for it either, they re-read on their own
+# schedule (`OPTIMISTIC_REFRESH_DELAYS`).
+DEFAULT_SCAN_INTERVAL_MINUTES: Final = 15
 MIN_SCAN_INTERVAL_MINUTES: Final = 2
 MAX_SCAN_INTERVAL_MINUTES: Final = 60
 

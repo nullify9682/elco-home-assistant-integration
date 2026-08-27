@@ -62,9 +62,11 @@ then simply not created.
 
 ## Options
 
-**Polling interval**, from 2 to 60 minutes (10 by default). Lowering it
-catches brief cooling and hot water cycles, at the cost of more load on
-their servers — a rate limiter exists on the Remote Thermo side.
+**Polling interval**, from 2 to 60 minutes (**15 by default since 1.4.0**,
+10 before). Lowering it catches brief cooling and hot water cycles, at the
+cost of more load on their servers — a rate limiter exists on the Remote
+Thermo side. Changing the default does **not** move an installation that
+already saved this option: set it from the integration's options page.
 
 **Summer/winter switchover point**, 21 °C by default. Above this outside
 temperature, the machine cannot be heating the house: it is therefore never
@@ -95,6 +97,14 @@ These behaviors are counter-intuitive and documented in detail in
 - **`invalid` isn't enough to discard a value.** Some counters return an
   overflowed 32-bit integer without raising any flag; the declared bounds
   filter those out.
+- **A refused token answers HTTP 405, not 401 or 403.** Verified on every
+  authenticated route, GET and POST alike: absent, empty or expired,
+  `ar.authToken` yields `405 Method Not Allowed`. Nothing distinguishes it
+  from the status a genuinely wrong method would return, so the integration
+  reacts to a 405 by logging in again and retrying once — and, if a token
+  minted seconds earlier is refused all the same, reports a **failed cycle
+  rather than an authentication failure**: asking for the password would be
+  the wrong question.
 
 ## Migration from version 0.1
 
@@ -110,17 +120,27 @@ history are preserved. No automation or dashboard needs to be updated.
 - No push updates. The gateway talks to the cloud over MQTT, but that
   channel isn't accessible to a third-party client; periodic polling remains
   the only way.
-- **The session forces IPv4** (`family=socket.AF_INET`, since 1.3.0; the
-  `family` parameter is the same one core's `cloudflare` integration exposes,
-  for an unrelated reason). On a dual-stack LAN whose WAN has no IPv6
-  egress, the default resolver still issues an AAAA query alongside the A
-  one; if it gets routed to an IPv6 nameserver that isn't actually reachable
-  (a router advertising itself over IPv6 for the LAN without forwarding
-  DNS to the internet, for instance), that leg times out and takes the
-  whole lookup down with it — even though the A query would have resolved
-  fine. Seen as sporadic `Timeout while contacting DNS servers` errors,
-  each usually recovering on the very next poll. Forcing IPv4 skips the
-  AAAA query entirely.
+- **Sporadic `Timeout while contacting DNS servers`.** Measured over the
+  9 days to 2026-08-27: 67 outages, every single one exactly one poll cycle
+  long. Each one takes the whole installation `unavailable` until the next
+  cycle.
+
+  The session forces IPv4 (`family=socket.AF_INET`, since 1.3.0), on the
+  theory that the resolver's AAAA leg was timing out on a LAN with no IPv6
+  egress and taking the A query down with it. **That did not thin the
+  outages out** — they ran at the same rate for the five days after,
+  so the explanation was wrong. The setting is kept (it is harmless, and
+  the account is reachable over IPv4) but it is not the fix.
+
+  What the integration does instead, since 1.4.0: **retry the failures that
+  provably never arrived.** A name-resolution or TCP-connect failure means
+  no connection was ever established, so replaying the request cannot apply
+  a write twice — three attempts, ~8 s apart, well inside one cycle. Any
+  other error is reported as-is and never replayed: a response cut off
+  mid-read may correspond to an order the machine already accepted.
+
+  This is tolerance, not a cure. The blip is upstream of Home Assistant and
+  nothing here can stop it happening.
 
 ## License
 
